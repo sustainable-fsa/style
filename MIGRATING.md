@@ -123,9 +123,12 @@ carries a kit version (`/style/vendor/maplibre-gl-5.18.0/…`).
 
 **Head / markup** (`index.html`):
 
-- Copy `snippets/head.html`; keep its order — theme CSS, MapLibre CSS, inline
-  theme boot, the two classic UMD scripts, then `<script type="module">`. The
-  kit's map modules expect `window.maplibregl` and `window.topojson` to exist.
+- Copy `snippets/head.html` and **keep its order**: metas → CSP → the inline
+  anti-flash boot (`snippets/anti-flash.html`) → icons → font preload →
+  MapLibre CSS → kit CSS. Then, at the **end of `<body>`**, the two classic UMD
+  scripts followed by `<script type="module" src="app.js">` — the kit's map
+  modules expect `window.maplibregl` and `window.topojson` to already exist,
+  and a module script is deferred, so it runs after both.
 - Meta CSP: everything is same-origin (README § Quickstart has the block). Add
   `worker-src blob:` and `img-src … data: blob:` — MapLibre needs both — and
   recompute the inline boot script's `sha256` **from your own page**.

@@ -23,42 +23,59 @@ delivery, and county-choropleth apps.
 
 ## Quickstart
 
-Copy the canonical `<head>` from [`snippets/head.html`](snippets/head.html),
-inline the theme-boot snippet, and put the skip link first in `<body>`. The real
+Copy the canonical `<head>` from [`snippets/head.html`](snippets/head.html)
+(which carries the full commentary), inline
+[`snippets/anti-flash.html`](snippets/anti-flash.html) into it, and put
+[`snippets/skip-link.html`](snippets/skip-link.html) first in `<body>`. The
 shape of a consumer page:
 
 ```html
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
 <!-- Everything is same-origin: the kit, the font, and the county geometry all
      live under sustainable-fsa.com. The host is listed explicitly so the page
-     also works from a *.github.io preview origin. Recompute the sha256 from
-     YOUR OWN page — see MIGRATING § Gotchas. -->
+     also works from a *.github.io preview origin. worker-src blob: is
+     MapLibre's. Recompute the sha256 from YOUR OWN page — MIGRATING § Gotchas. -->
 <meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src  'self' https://sustainable-fsa.com 'sha256-REPLACE-WITH-YOUR-OWN';
-  style-src   'self' https://sustainable-fsa.com;
-  font-src    'self' https://sustainable-fsa.com;
-  img-src     'self' https://sustainable-fsa.com data: blob:;
+  default-src 'none';
+  script-src 'self' https://sustainable-fsa.com 'sha256-REPLACE-WITH-YOUR-OWN';
+  worker-src blob:;
+  style-src 'self' https://sustainable-fsa.com;
+  font-src https://sustainable-fsa.com;
+  img-src 'self' data: blob: https://sustainable-fsa.com;
   connect-src 'self' https://sustainable-fsa.com;
-  worker-src  blob:;
-  base-uri 'none'; object-src 'none'">
+  base-uri 'none';
+  form-action 'none';
+">
 
-<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.1.0/theme/sfsa-theme.css">
+<script>/* anti-flash theme boot — INLINE, before the first stylesheet */</script>
+
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="https://sustainable-fsa.com/style/v0.1.0/theme/fonts/roboto-v51-latin-wght.woff2">
 <link rel="stylesheet" href="https://sustainable-fsa.com/style/vendor/maplibre-gl-5.18.0/maplibre-gl.css">
+<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.1.0/theme/sfsa-theme.css">
+```
 
-<script>/* theme boot — inline, copied from snippets/; must run before first paint */</script>
+and at the end of `<body>` — the two vendored UMD scripts define `maplibregl`
+and `topojson` as globals and must load before anything reads them; your own
+module is deferred by definition, so it runs after both:
 
-<!-- Classic UMD scripts FIRST: the kit's map modules expect window.maplibregl
-     and window.topojson to exist by the time the app module runs. -->
+```html
 <script src="https://sustainable-fsa.com/style/vendor/maplibre-gl-5.18.0/maplibre-gl.js"></script>
 <script src="https://sustainable-fsa.com/style/vendor/topojson-client-3.1.0/topojson-client.min.js"></script>
-
 <script type="module" src="app.js"></script>
 ```
 
+Note the two URL shapes: **kit code is version-pinned**
+(`/style/v0.1.0/…`), **vendored libraries are pinned by their own directory
+name** (`/style/vendor/maplibre-gl-5.18.0/…`) and never carry a kit version. The
+font preload must point at the same versioned path the stylesheet loads from,
+and `crossorigin` on it is mandatory even same-origin — fonts are fetched in
+CORS mode, and a preload without it fetches the file twice.
+
 `app.js` imports the kit by full versioned URL — no bundler, no import map, no
-npm:
+npm (the shape is what matters here; each module's own header is canonical for
+its exports):
 
 ```js
 import { KIT_VERSION, showToast, initThemeToggle, replaceUrlState }
@@ -73,7 +90,9 @@ import { initLegend }
 
 Every kit module carries a `@version` header and JSDoc-style comments on its
 exports. **Read the module source for argument shapes rather than guessing** —
-that is where the API is documented.
+that is where the API is documented. `core/core.js` also exports `kitUrl(path)`,
+which resolves a path against the kit root the module was loaded from, so an app
+can reach `assets/` without hard-coding the version twice.
 
 Non-vanilla consumers (Quarto, Jekyll/Tailwind, R plotting) read
 [`tokens/tokens.json`](tokens/tokens.json), the machine-readable mirror of the
@@ -84,16 +103,16 @@ CSS custom properties, kept in lockstep with the theme by CI.
 | Path | What | Who needs it |
 |---|---|---|
 | `theme/sfsa-theme.css` | Tokens (light + high-contrast), z-index ladder, reset + a11y utilities, `@font-face`, MapLibre control polish, component shells | every page |
-| `theme/fonts/` | Roboto variable woff2 (400–900), self-hosted; referenced by a same-directory relative `url()` | every page |
-| `tokens/tokens.json` | The tokens as JSON | non-vanilla consumers |
-| `core/core.js` | `KIT_VERSION`, throw-safe storage, escaping, UTC civil-date helpers, `fetchJSON` + promise cache, live `reducedMotion()`, `viewport`, toast, theme, live region, modal, collapsible, URL state | every page |
+| `theme/fonts/` | Roboto variable woff2 (100–900 axis), self-hosted; referenced by a same-directory relative `url()` | every page |
+| `tokens/tokens.json` | The tokens as JSON, plus the z-index ladder, the breakpoint ladder, the fonts, and the measured contrast matrix for both themes | non-vanilla consumers |
+| `core/core.js` | `KIT_VERSION`, throw-safe storage, escaping, UTC civil-date helpers, `fetchJSON` + promise cache, live `reducedMotion()`, `viewport`, toast, theme, live region, modal, collapsible, search collapse, URL state, `kitUrl` | every page |
 | `map/map.js` | The basemap-less MapLibre setup: cream canvas, no rotation, navigation + fit controls, zoom floor, feature-state helpers, token→paint resolution | map apps |
 | `county/county.js` | The FSA county layer: vintage selection by program year, TopoJSON fetch + session cache, **FSA-string-id joins**, `swapVintage` | county apps |
 | `ui/search.js`, `ui/card.js`, `ui/legend.js`, `ui/export.js`, `ui/help.js` | County search combobox, county detail card, legend (continuous, cyclic wheel, categorical), branded PNG export, markdown help modal | as needed |
 | `vendor/<lib>-<version>/` | MapLibre GL **5.18.0**, topojson-client **3.1.0** as UMD globals — **outside** release snapshots, pinned by library version; manifest in [`vendor/VENDORED.md`](vendor/VENDORED.md) | map apps |
 | `vendor-esm/marked-18.0.10/` | ES-module markdown renderer imported by `ui/help.js` — **inside** release snapshots | help-modal apps |
 | `assets/` | Sustainable FSA banner, MCO logo, favicon set — the one deliberately **mutable** published path | every page |
-| `snippets/` | Copy-paste blocks: canonical `<head>`, inline theme boot, skip link | every page |
+| `snippets/` | Copy-paste blocks: canonical `<head>`, inline anti-flash theme boot, skip link | every page |
 | `demo/` | Living component demo; the html-validate and axe target | contributors |
 | `tools/` | `release.sh`, `check-tokens.mjs`, `check-contrast.mjs`, `check-frozen.mjs`, `a11y-audit.mjs` | contributors |
 | `vX.Y.Z/` | Byte-copy snapshot of a release + `MANIFEST.sha256`. **Immutable.** | consumers (by URL) |

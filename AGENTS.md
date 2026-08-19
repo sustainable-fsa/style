@@ -92,8 +92,9 @@ to any consumer, migrated or new.
   never a moving alias. Vendored libraries are pinned by *library* version
   (`/style/vendor/maplibre-gl-5.18.0/…`) and deliberately live outside the
   snapshot.
-- Copy the inline theme-boot snippet **INLINE** into `<head>` — never load it as
-  a file; it must run before first paint. If the app ships a CSP, recompute that
+- Copy `snippets/anti-flash.html` (the theme boot) **INLINE** into `<head>` —
+  never load it as a file; it must run before first paint, after the CSP and
+  before the first stylesheet. If the app ships a CSP, recompute that
   script's `sha256` **from your own page** (MIGRATING § Gotchas) and list
   `https://sustainable-fsa.com` in `script-src`, `style-src`, `font-src`,
   `img-src`, and `connect-src`.

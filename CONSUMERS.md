@@ -75,9 +75,9 @@ styling work:
   id = paste0(`FIPS State Code`, `FIPS County Code`)   # wrong key
   ```
 
-  The map draws, most counties match, and the ones
-  that don't are silently blank or silently attributed to the wrong FSA office.
-  Its popup even labels the value "FIPS:". This is the incident behind
+  The map draws, most counties match, and the ones that don't are silently
+  blank or silently attributed to the wrong FSA office. Its popup even labels
+  the value "FIPS:". This is the incident behind
   HOUSE-STYLE §7's review-blocker rule.
 - It also draws **every** program year on dd17. The vintage must follow the
   program year (dd17 ≤ 2014, dd22 ≥ 2015).
@@ -189,9 +189,11 @@ session starting fresh in the consumer's repo. Quick reference:
 | `#navbar` | `.sfsa-navbar` |
 | `#toast` | `.sfsa-toast` |
 | `#tooltip` | `.sfsa-tooltip` |
-| `#info-modal` / `#help` | `.sfsa-modal` |
-| `#btn-info` | `.nav-btn.sfsa-btn-help` |
-| legend / county-card shells | `.sfsa-panel` + `initCollapsible` |
+| `#info-modal` / `#help` | `.sfsa-modal` + `initInfoModal` |
+| `#btn-info` | `.nav-btn.sfsa-btn-info` |
+| legend / panel shells | `.sfsa-panel` + `initCollapsible` |
+| county detail panel | `.sfsa-card` (bottom sheet on compact) |
+| search field + dropdown | `.sfsa-combobox` (+ `.sfsa-search-collapse` / `.sfsa-search-toggle`) |
 | drawer scrim | `.sfsa-scrim` |
 
 **Checklist per app:**
@@ -199,7 +201,7 @@ session starting fresh in the consumer's repo. Quick reference:
 1. Fix the county join first if it is wrong (`-web`), and verify per-year county
    counts against the archive before anything else moves.
 2. Build the browser data payload; version it (`<app>/1`).
-3. Copy `snippets/head.html`; inline the theme boot; recompute its `sha256` from
+3. Copy `snippets/head.html`; inline `snippets/anti-flash.html`; recompute its `sha256` from
    your own page; add `viewport-fit=cover`.
 4. Compose the page from kit components (navbar + banner lockup, panels, county
    card, legend, help modal); keep app-specific layout CSS local and tokenized.

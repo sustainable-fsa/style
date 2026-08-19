@@ -21,16 +21,19 @@ pilot did not first prove.
 - **`theme/sfsa-theme.css`** — design tokens in **two** themes, **light
   (default)** and **high-contrast**, on the project palette (terracotta
   `#B7410E` fill-only with `--accent-line` `#8f320a` for lines, icons, and text;
-  sage, ochre, cream). Z-index ladder, reset and a11y utilities (`.sr-only`,
+  sage and ochre tokenized at the grade each is safe at; cream ground).
+  Z-index ladder, reset and a11y utilities (`.sr-only`,
   universal `:focus-visible`, reduced-motion blanket, skip link, touch targets),
   self-hosted Roboto `@font-face`, MapLibre control polish, and component shells
   (navbar with banner lockup, panel, county card, toast, tooltip, modal, scrim)
   with the 1400/1060/750/640 responsive ladder.
-- **`theme/fonts/`** — Roboto variable woff2, weights 400–900; headings 900 via
+- **`theme/fonts/`** — Roboto variable woff2, the whole 100–900 axis in one
+  file; body 400, headings 900 via
   `--heading-weight`. No font request leaves the origin.
 - **`tokens/tokens.json`** — machine-readable mirror of the CSS custom
-  properties, for Quarto, Tailwind, and R consumers. CI enforces parity with the
-  theme and the two-theme contrast contract.
+  properties for Quarto, Tailwind, and R consumers, plus the z-index and
+  breakpoint ladders and the measured contrast matrix for both themes. CI
+  enforces parity with the theme.
 - **`core/core.js`** — `KIT_VERSION`, throw-safe storage (`sfsa-<app>-*`
   namespace, `sfsa-theme` shared org-wide), HTML escaping, **UTC-only civil-date
   helpers**, `fetchJSON` + promise cache, live `reducedMotion()`, `viewport`
@@ -57,7 +60,7 @@ pilot did not first prove.
 - **`ui/help.js`** — markdown help and info modal, rendered with the vendored
   `marked`. **Repo-authored markdown only** — never user-supplied content.
 - **`snippets/`** — canonical `<head>` (same-origin CSP included), the inline
-  theme boot, the skip link.
+  anti-flash theme boot, the skip link.
 - **`vendor/`** — MapLibre GL **5.18.0** and topojson-client **3.1.0** as UMD
   globals, pinned by **library** version and living **outside** release
   snapshots, so a kit release never re-copies a megabyte of JavaScript.

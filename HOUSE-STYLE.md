@@ -15,19 +15,22 @@ The migration playbook is [MIGRATING.md](MIGRATING.md).
 ## 1. Identity
 
 **Accent.** The Sustainable FSA accent is **terracotta `#B7410E`**, and it is a
-**fill color only**. Borders, icons, rules, and text take **`--accent-line`
-(`#8f320a`)**, which is measured ≥ 4.5:1 on the cream and white surfaces. The
-accent is tuned to sit *behind* `--text-on-accent`; as a hairline or a small
-glyph it loses its margin on `--bg-raised` and it does not invert cleanly into
-the high-contrast theme. **Never introduce another red or orange** — the palette
-has exactly one, and a second one reads as a second brand.
+**fill color only**. Borders, icons, rules, links, and text take
+**`--accent-line` (`#8f320a`)**, which holds ≥ 7:1 on every surface. The accent
+is tuned to sit *behind* `--text-on-accent` — that pair is what CI measures —
+and the split also survives the theme switch: in high-contrast the accent is
+**re-derived** (`--accent` becomes `#8f320a`, `--accent-line` `#7a2a08`), so a
+border that borrowed the fill color would collapse into the fill it sits
+against. **Never introduce another red or orange** — the palette has exactly
+one, and a second one reads as a second brand.
 
-Supporting brand hues, both tokenized: **sage `#6B8E5A`** and **ochre
-`#D9A441`**. Each carries a text-safe variant, because the base hues are not
-text: `--ochre-light` (`#fdebbb`) is the text-safe value on terracotta,
-`--ochre-dark` (`#8a6620`) the text-safe value on white or cream. The ground is
-**cream `#faf7f2`** — these are the same values the project's Jekyll site
-compiles into its Tailwind config, and the tokens are the shared source now.
+Supporting brand hues are tokenized **at the grade they are safe at**, because
+the base hues are not text: `--sage` (`#6B8E5A`, 3.48:1 — lines and graphics
+only), `--sage-dark` (`#52704a`, text grade), `--ochre-dark` (`#8a6620`, text
+grade — eyebrows and panel titles). The ground is **cream `#faf7f2`**, which is
+`--bg-deep`. These are the same brand values the project's Jekyll site compiles
+into its Tailwind config; the tokens are the shared source now, and every one of
+them carries its measured ratio in a comment beside it.
 
 **Banner lockup.** `assets/sustainable-fsa-banner.svg` — intrinsic **1225 × 350**,
 and **patched**: the shipped copy carries explicit `width`/`height` attributes
@@ -37,13 +40,18 @@ Firefox, which is a blank corner in every exported PNG and no console error at
 all. Use the kit's copy; do not re-export the banner without re-checking the
 canvas path.
 
-In a navbar the banner is **40 px tall** (its width follows the 3.5:1 aspect),
-wrapped in a link to `https://sustainable-fsa.com`, with
+In a navbar the banner is **40 px tall** (its width follows the 3.5:1 aspect —
+140 px), wrapped in a link to `https://sustainable-fsa.com`, with
 `aria-label="Sustainable FSA — home"` on the link and **empty `alt`** on the
-image — the link carries the name, so a filled `alt` would double it.
+image — the link carries the name, so a filled `alt` would double it. Below
+750 px the wide banner swaps for the square badge: `.logo-link` holds both
+images (`.banner-img`, `.badge-img`) and the theme toggles between them in pure
+CSS, so there is no JS, no second request, and no reflow at the breakpoint.
 
-**Naming.** The app title sits in the navbar brand block; beneath it the
-subtitle line: **"A Sustainable FSA project."** Every public app carries it.
+**Naming.** The app title sits in the navbar brand block (`.brand-title` —
+uppercase, letter-spaced, `--text-muted`); beneath it the subtitle line
+(`.brand-subtitle` — italic, `--text-dim`): **"A Sustainable FSA project."**
+Every public app carries it.
 
 **Page title.** `<Short name> · Sustainable FSA` — one middot, spaces either
 side. The short name is the *shortest distinctive* phrase, the thing that tells
@@ -57,8 +65,9 @@ means. Target titles per app are in [CONSUMERS.md](CONSUMERS.md); apply on
 migration.
 
 **Typography.** `--font-ui` is **Roboto**, self-hosted as a single variable
-woff2 covering weights **400–900** (`theme/fonts/`, `@font-face` in the theme
-CSS with a same-directory relative `url()`). Headings are **900** via
+woff2 covering the whole **100–900** weight axis (`theme/fonts/`, `@font-face`
+in the theme CSS with a same-directory relative `url()`; body text is 400).
+Headings are **900** via
 `--heading-weight` — that heavy display weight against light body text is the
 family's most recognizable typographic move; do not soften it per-app.
 `--font-mono` is the **system monospace stack** (no download): county codes,
@@ -91,15 +100,18 @@ unless it is data-encoding (a color ramp — §6) or carries a contrast comment
 The contrast contract, enforced by CI (`tools/check-contrast.mjs`) across **both
 themes**:
 
-| Foreground | Permitted on | Guarantee |
+| Foreground | Contracted on | Guarantee |
 |---|---|---|
-| `--text-primary`, `--text-secondary` | deep, surface, raised | ≥ 4.5:1 |
-| `--text-muted` | deep, surface, **raised** | ≥ 4.5:1 |
+| `--text-primary`, `--text-secondary`, `--text-muted` | deep, surface, raised | ≥ 4.5:1 |
 | `--text-dim` | deep, surface **only** | ≥ 4.5:1 |
-| `--accent-line` | deep, surface | ≥ 4.5:1 |
-| `--accent-line` | raised | ≥ 3:1 |
+| `--accent-line` | deep, surface, raised | ≥ 4.5:1 |
 | `--text-on-accent` | `--accent` fills | ≥ 4.5:1 |
-| `--ctrl-border` | its own surfaces | ≥ 3:1 |
+| `--ctrl-border` | deep, surface, raised | ≥ 3:1 (WCAG 1.4.11) |
+
+`--accent`, `--accent-light`, and `--sage` are **fill/line grade only** — they
+are not on the table because they are not text. The measured ratios for every
+token on every surface, in both themes, are in `tokens/tokens.json` under
+`contrast`; the CSS carries them inline as comments.
 
 The three surfaces, light-first: **deep** is the page and map ground (brand
 cream), **surface** is a panel or card, **raised** is a control or a row inside
@@ -116,10 +128,16 @@ Hard-won rules encoded here:
   stricter line here means a legend row inside a raised panel needs no
   special-casing.
 - **`--text-dim` is deliberately weaker** and is contracted on deep and surface
-  only. It is for the subtitle line and for de-emphasized metadata, not for
-  anything a user has to read inside a control.
-- `--selection-ring` tokenizes the county selection halo, and `--ctrl-border`
-  the interactive edge; both were hard-coded in the pilot before the kit existed.
+  only — it happens to clear raised in both shipped themes, but the contract
+  does not promise that and a future palette change may not. It is for the
+  subtitle line and for de-emphasized metadata, not for anything a user has to
+  read inside a control.
+- `--selection-ring` tokenizes the county selection halo and `--selection-casing`
+  the white casing width the map draws beneath it (1 px light, 1.5 px
+  high-contrast) — a ring over a data fill needs the casing to stay visible on
+  every ramp color. `--ctrl-border` is the interactive edge, and it is a
+  **non-text** contract (1.4.11, ≥ 3:1) — don't use `--border`, the decorative
+  hairline, on a control.
 
 **Theming.** Two themes: **`light` (default)** and **`high-contrast`**, switched
 by `data-theme` on `<html>`. Light is the default because the brand is a light
@@ -141,13 +159,17 @@ silently rots.
 **Navbar** (`.sfsa-navbar`): a **white bar** — not the glass-dark treatment of
 the dark-first kit this is modeled on; the brand is light, and a translucent
 dark bar over a cream map reads as a foreign element. 52 px min-height, a
-`--accent-line` hairline under it via `::after`. Order: **banner lockup** →
-divider → brand block (title + subtitle) → `.controls` → `.nav-meta`
-(right-aligned). Buttons are `.nav-btn` (34 px, `.icon-only` variant), segmented
-groups `.seg-btns > .seg-btn`, help button `.sfsa-btn-help`.
+brand-gradient underline via `::after`. Order: **banner lockup** (`.logo-link`)
+→ `.nav-divider` → `.brand` block (`.brand-title` + `.brand-subtitle`) →
+`.controls` → `.nav-meta` (right-aligned). Buttons are `.nav-btn` (34 px,
+`.icon-only` variant), segmented groups `.seg-btns > .seg-btn`, info/help button
+`.sfsa-btn-info` (a circle, deliberately distinct, and it never carries a
+`.btn-label`).
 
-**Panels** (`.sfsa-panel`): floating surfaces over the map (legend, filters,
-county card). Head + collapsible body; wire with `initCollapsible`.
+**Panels** (`.sfsa-panel`) are floating surfaces over the map (legend, filters):
+head + collapsible body, wired with `initCollapsible`. **`.sfsa-card`** is the
+detail surface for a selected county, and on compact it becomes a bottom sheet
+(see below).
 
 **Z-index ladder**: add to a tier, never invent a number. The tiers are
 documented in the CSS. MapLibre's own controls are z-index 2; map popups ship
@@ -158,37 +180,46 @@ module's `viewport`:
 
 | Width | What sheds |
 |---|---|
-| ≤ 1400px | button and control text labels (`.btn-label`, `.control-label`) — buttons then square to 34px (40px on touch) so they match `.icon-only` neighbours; `.sfsa-btn-help` keeps its circle |
+| ≤ 1400px | button and control text labels (`.btn-label`, `.control-label`) — buttons then square to 34px (40px on touch) so they match `.icon-only` neighbours; `.sfsa-btn-info` keeps its circle |
 | ≤ 1060px | chrome padding and gaps tighten (via `--nav-gap`) |
-| ≤ 750px | the brand **subtitle** and the lockup divider; the banner and the app title stay — the banner *is* the identity here and at 40 px it costs 140 px |
-| ≤ 640px | the banner steps to 32 px; a navbar search field collapses to a disclosure and reopens as an overlay bar; the county card docks to the bottom as a sheet; panels auto-collapse; **compact mode** begins |
+| ≤ 750px | the wide banner swaps for the square badge, and the text lockup (`.brand`: title **and** subtitle) plus `.nav-divider` go |
+| ≤ 640px | `.refresh-status`; a navbar search field collapses to a disclosure and reopens as an overlay bar; **compact mode** begins — `.sfsa-card` docks to the bottom as a sheet capped at `45dvh` |
 
-Because `.btn-label` sheds below 1400 px, **any button that relies on it for its
-name must carry a permanent `aria-label`** — otherwise the button becomes
-nameless at laptop widths, and the kit's axe audit fails exactly this.
+**Everything that "sheds" here is clipped, not removed.** Both `.btn-label` and
+`.control-label` use the `.sr-only` clip pattern below 1400 px, and so does the
+brand lockup at 750 px. `display: none` takes an element out of the
+accessibility tree: a `.btn-label` is often the only accessible name a button
+was given, and a `.control-label` is a `<label for>` naming a real input, so
+removing either leaves a nameless control at every width below the breakpoint —
+a bug a 1440 px-only axe run cannot see. **Run axe at a narrow viewport too.**
+Buttons should still carry a permanent `aria-label`; the clip is the belt to
+that suspenders.
 
-`.control-label` is different: it is normally a `<label for>` naming a real
-control, so the kit hides it **visually** below 1400 px rather than removing it.
-`display: none` would strip the name from the input it labels. **Run axe at a
-narrow viewport, not just at desktop** — a shed label is invisible to a
-1440 px-only audit.
-
-The lockup is *visually* hidden where it sheds, never `display: none`, so the
-brand title may be the page's `<h1>`: the document outline and the
+The same reasoning protects the document outline: `.brand-title` is often the
+page's `<h1>`, and clipping rather than removing it means the outline and the
 screen-reader app name survive every breakpoint.
 
+The search collapse has its own constant, `SEARCH_COLLAPSE_MQ`
+(`(max-width: 640px)`), which is deliberately **width-only** — unlike the
+compact query it has no height clause, because a short landscape window is still
+wide enough for an inline field.
+
+While the bottom sheet is open, JS stamps its rendered height on `:root` as
+**`--sheet-h`**; the bottom-corner MapLibre controls and the toast both lift by
+that amount, and nothing else needs to know the sheet exists. Clear it on close.
+
 **Compact** is `(max-width: 640px), (max-height: 560px)` — note the height
-clause: a short landscape phone is compact too. **This string exists in exactly
-two places** (the CSS §-comment and the core module's `viewport.COMPACT_MQ`) and
-**they must stay in sync**; a drift between them is a class of bug that only
+clause: a short landscape phone is compact too. **The string is authored in
+exactly two places** — the CSS §6 header comment and the core module's
+`viewport.COMPACT_MQ` — and the compact `@media` block must match it character
+for character. **They must stay in sync**; a drift between them is a bug that
+only
 appears in a narrow band of viewport sizes and never reproduces on the
 developer's laptop. Compact drives JS decisions: bottom sheet instead of
 anchored popup, panel auto-collapse, control relocation into a drawer.
 
 **Mobile patterns:**
 - Off-canvas drawer + `.sfsa-scrim`, panel at `--z-drawer`.
-- Bottom sheet for the county card on compact — peek state, drag-up, and it
-  must lift bottom-corner map controls and the toast (`--sheet-h`).
 - Full-viewport apps use **`100dvh`** (never `100vh`) and `overflow: hidden` on
   body. `100vh` on iOS Safari is the URL-bar-hidden height, so the bottom of the
   map — where the controls and the sheet live — sits under the browser chrome.
@@ -223,10 +254,10 @@ For this fleet the state that belongs in the URL is: program year, pasture or
 livestock type, the selected county's **FSA id**, the active variable, camera,
 and theme.
 
-**localStorage namespace.** **`sfsa-theme` is deliberately shared org-wide** on
-the origin — every project site is a path under `sustainable-fsa.com`, so a
-theme choice genuinely follows the user from the grazing-period map to the LFP
-dashboard to the data portal. Everything else is app-prefixed
+**localStorage namespace.** **`sfsa-theme` (the core module's `THEME_KEY`) is
+deliberately shared org-wide** on the origin — every project site is a path
+under `sustainable-fsa.com`, so a theme choice genuinely follows the user from
+the grazing-period map to the LFP dashboard. Everything else is app-prefixed
 (`sfsa-<app>-*`). Persisted values are **re-validated on read** exactly like URL
 params: another app on the same origin, or last year's version of yours, may
 have written them.
@@ -236,8 +267,10 @@ properties (§7), so a theme change must re-resolve and re-apply them; the kit's
 theme toggle exposes an `onChange` hook for exactly this, and it also maintains
 the icon swap and the button's `aria-label`.
 
-**Toasts** for transient status. **Dialogs** are native `<dialog>`: backdrop
-click closes, Esc closes, focus returns to the opener. First-visit info modals
+**Toasts** for transient status, **2800 ms** default — longer explicit durations
+for errors are fine, but don't change the default per app. **Dialogs** are
+native `<dialog>` via `initInfoModal`: backdrop click closes, Esc closes, focus
+returns to the opener. First-visit info modals
 auto-open once, gated by an app-prefixed localStorage key **written AT OPEN, not
 at close** — write it on close and anyone who navigates away without dismissing
 the modal sees it again on every single visit. Deep links (a URL that already
