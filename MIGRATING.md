@@ -11,7 +11,7 @@ Read order:
 2. **[HOUSE-STYLE.md](HOUSE-STYLE.md)** — the rules,
 3. **your app's row in [CONSUMERS.md](CONSUMERS.md)** — per-app intel, including
    known defects to fix on the way through,
-4. **`fsa-normal-grazing-period`** — the pilot, and the reference implementation
+4. **`lfp-explorer`** — the pilot, and the reference implementation
    of every convention here. When something in this file is ambiguous, the pilot
    is the answer.
 

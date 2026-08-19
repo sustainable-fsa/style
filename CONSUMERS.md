@@ -11,7 +11,7 @@ states, and the first one silently forks the tokens.
 
 ## Pick up here
 
-The kit is pre-1.0 and **`fsa-normal-grazing-period` is the pilot** — it is being
+The kit is pre-1.0 and **`lfp-explorer` is the pilot** — it is being
 built against the kit as the kit is being written, which is deliberate: v0.1.0
 ships when the pilot runs on it, and nothing enters the kit that the pilot did
 not first prove.
@@ -35,17 +35,17 @@ and they set the shape of every migration below:
 
 | Property | Status | Kit surface it needs |
 |---|---|---|
-| **fsa-normal-grazing-period** | ✅ **Migrated — live on v0.1.0** ([app](https://sustainable-fsa.com/fsa-normal-grazing-period/)) | everything: theme, core, map, county, ui/* |
+| **lfp-explorer** | ✅ **Live on v0.1.0** ([app](https://sustainable-fsa.com/lfp-explorer/)) — the grazing-periods map, moved out of the fsa-normal-grazing-period archive as the seed of the Sustainable FSA Explorer | everything: theme, core, map, county, ui/* |
 | **fsa-lfp-eligibility-web** | Next | + categorical legend, dependent controls |
 | **fsa-lfp-eligibility** | Next (with the above) | + categorical legend, dependent controls |
 | **fsa-lfp-eligibility-derived** | Likely, with its siblings | + a convention comparator |
 | **data-portal** | Partial adoption | tokens, navbar, toast, modal, URL state — **no map modules** |
 | **usdm-viz** | Partial adoption | tokens, navbar, accessible video shell |
 
-### fsa-normal-grazing-period — the pilot
+### lfp-explorer — the pilot
 
 The FSA Normal Grazing Period archive, 2008–present, keyed on the FSA county.
-Its current dashboard (`fsa-normal-grazing-period.qmd`) is the direct ancestor of
+The retired dashboard in the fsa-normal-grazing-period archive (`fsa-normal-grazing-period.qmd`) is the direct ancestor of
 the kit's map and county modules: the runtime vintage swap, the cyclic
 day-of-year ramp, and the FSA-string-id join all originate here and were
 generalized out of it.
@@ -139,7 +139,7 @@ qualifies on arrival.
 
 | Property | `<title>` and card title | `og:site_name` |
 |---|---|---|
-| fsa-normal-grazing-period | **Grazing Periods · Sustainable FSA** | Sustainable FSA |
+| lfp-explorer | **Grazing Periods · Sustainable FSA** | Sustainable FSA |
 | fsa-lfp-eligibility-web | **LFP Eligibility · Sustainable FSA** | Sustainable FSA |
 | fsa-lfp-eligibility | **LFP Determinations · Sustainable FSA** | Sustainable FSA |
 | fsa-lfp-eligibility-derived | **LFP Reanalysis · Sustainable FSA** | Sustainable FSA |
@@ -148,7 +148,7 @@ qualifies on arrival.
 
 ## Kit-deferred pieces (keep app-local; do NOT extract)
 
-- **The month-wheel legend** (`fsa-normal-grazing-period`) — a cyclic legend
+- **The month-wheel legend** (`lfp-explorer`) — a cyclic legend
   with month labels around a ring. Correct for day-of-year, meaningless for
   anything else in the fleet so far.
 - **The grazing-span chart** — the horizontal start→end bar for a selected

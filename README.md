@@ -194,7 +194,7 @@ python3 -m http.server 8000 -d /Users/kyle.bocinsky/git/sustainable-fsa
 ```
 
 Then `http://localhost:8000/style/demo/` is the kit and
-`http://localhost:8000/fsa-normal-grazing-period/` is a consumer, with the same
+`http://localhost:8000/lfp-explorer/` is a consumer, with the same
 relative geometry between them that production has. That is the point: consumer
 apps develop against **root-absolute `/style/…` paths**, which resolve
 identically on this server and on `sustainable-fsa.com`, and the boundary
