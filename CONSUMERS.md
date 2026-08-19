@@ -35,7 +35,7 @@ and they set the shape of every migration below:
 
 | Property | Status | Kit surface it needs |
 |---|---|---|
-| **fsa-normal-grazing-period** | 🚧 **Pilot, in migration now** — target **v0.1.0** | everything: theme, core, map, county, ui/* |
+| **fsa-normal-grazing-period** | ✅ **Migrated — live on v0.1.0** ([app](https://sustainable-fsa.com/fsa-normal-grazing-period/)) | everything: theme, core, map, county, ui/* |
 | **fsa-lfp-eligibility-web** | Next | + categorical legend, dependent controls |
 | **fsa-lfp-eligibility** | Next (with the above) | + categorical legend, dependent controls |
 | **fsa-lfp-eligibility-derived** | Likely, with its siblings | + a convention comparator |
