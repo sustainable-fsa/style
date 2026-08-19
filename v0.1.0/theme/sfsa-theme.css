@@ -1,0 +1,1023 @@
+/* ============================================================================
+   sustainable-fsa/style · theme/sfsa-theme.css · v0.1.0
+   The Sustainable FSA shared web house style.
+
+   Source architecture: mt-climate-office/mco-web-style (MIT) — theme/mco-theme.css.
+   The layer order, the token contract, the z-index ladder, the breakpoint
+   ladder, and the component anatomy are ported one-for-one from that kit and
+   re-skinned for the Sustainable FSA brand. Where a rule here differs from its
+   MCO ancestor, the comment says so. Class namespace: .mco-* → .sfsa-*.
+
+   Published at https://sustainable-fsa.com/style/ and consumed via pinned
+   version path (see snippets/head.html).
+
+   Layers, top to bottom:
+     0. Font face           — Roboto variable (self-hosted, same-dir relative)
+     1. Design tokens       — light (:root, DEFAULT) + high-contrast
+     2. Stacking ladder     — z-index tiers for every floating surface
+     3. Reset & accessibility utilities
+     4. MapLibre control polish
+     5. Component shells    — navbar, buttons, range, toast, tooltip, modal,
+                              panel, card/sheet, combobox, scrim
+     6. Responsive & touch
+
+   TWO themes, not MCO's three. Sustainable FSA is a light-first brand: there is
+   no dark theme, and the high-contrast theme is WHITE-based (max contrast on
+   paper-white) rather than MCO's black-based one.
+   ========================================================================== */
+
+/* ── 0. Font face ─────────────────────────────────────────────────────────
+   Unlike mco-theme.css (which leaves fonts to the consumer and Google Fonts),
+   the house font is self-hosted next to this file. The src URL is relative to
+   THIS stylesheet, so a snapshot of style/v<x>/theme/ keeps working wherever
+   it is served from — no absolute origin baked in.
+
+   One variable file covers the whole 100–900 axis, so --heading-weight: 900
+   costs no extra request. font-display: swap: text paints in the fallback
+   immediately rather than blocking on the font. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/roboto-v51-latin-wght.woff2') format('woff2-variations');
+}
+
+/* ── 1. Design tokens ─────────────────────────────────────────────────────
+   LIGHT is the default theme and lives on bare :root — an unstyled page with
+   no `data-theme` attribute is already correct. `data-theme` on <html>
+   switches to high-contrast; the anti-flash snippet (snippets/anti-flash.html)
+   sets it before first paint.
+
+   Contrast contract (every number below is measured, sRGB WCAG 2.x):
+
+     --text-primary, --text-secondary, --text-muted   ≥ 4.5:1 on deep,
+                                                        surface AND raised
+     --text-dim                                       ≥ 4.5:1 on deep and
+                                                        surface (it also
+                                                        clears raised at
+                                                        5.36:1 — see below)
+     --accent-line                                    ≥ 4.5:1 on all three
+                                                        (it is the line/icon/
+                                                        text role AND the
+                                                        prose-link color)
+     --ctrl-border                                    ≥ 3:1 on deep and
+                                                        surface (1.4.11)
+     --text-on-accent                                 ≥ 4.5:1 on --accent
+
+   Measured light matrix (deep #faf7f2 / surface #ffffff / raised #f3f4f6):
+
+     --text-primary   #1f2937   13.74  14.68  13.34
+     --text-secondary #374151    9.65  10.31   9.37
+     --text-muted     #4b5563    7.07   7.56   6.87
+     --text-dim       #5d6570    5.52   5.90   5.36
+     --ctrl-border    #6b7280    4.52   4.83   4.39   (non-text, needs 3:1)
+     --accent         #B7410E    5.20   5.56   5.05   (FILL — see below)
+     --accent-line    #8f320a    7.48   7.99   7.26
+     --accent-light   #cf5a26    3.82   4.08   3.71   (line-grade ONLY)
+     --sage           #6B8E5A    3.48   3.72   3.38   (line-grade ONLY)
+     --sage-dark      #52704a    5.21   5.56   5.05
+     --ochre-dark     #8a6620    4.91   5.25   4.77
+     white on --accent #B7410E:  5.56
+
+   --accent is the brand terracotta. FILL-ONLY, per the house rule inherited
+   from MCO: put --text-on-accent on top of it. For borders, icons, or text
+   that must read against a surface, use --accent-line (#8f320a — the same
+   value the org site uses for links, so a kit link and a site link match). */
+:root {
+  /* Theme-independent tokens. These carry NO theme variant and are therefore
+     exempt from the both-blocks parity rule below — same arrangement as
+     mco-theme.css, which keeps radius/transition in :root only. Typography is
+     theme-independent here too: one brand voice in both themes. */
+  --font-ui:        'Roboto', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:      ui-monospace, SFMono-Regular, Menlo, monospace;
+  --heading-weight: 900;
+  --radius-sm:      4px;
+  --radius-md:      8px;
+  --radius-lg:      12px;
+  --transition:     0.2s cubic-bezier(0.4,0,0.2,1);
+  /* Height of a docked bottom sheet (.sfsa-card under compact). JS stamps the
+     live value on :root while a sheet is open so bottom-corner UI lifts above
+     it; the 0px default keeps every calc() inert until then. */
+  --sheet-h:        0px;
+
+  /* ---- Themed tokens. EVERY token below must also exist in the
+     [data-theme="high-contrast"] block. ---- */
+
+  --bg-deep:        #faf7f2;  /* brand cream — page ground and map canvas   */
+  --bg-surface:     #ffffff;  /* cards, modal, navbar, footer               */
+  --bg-raised:      #f3f4f6;  /* inset wells inside a surface               */
+  --border:         #e5e7eb;  /* decorative hairline — NOT a control edge   */
+  --border-glass:   rgba(31,41,55,0.08);
+  --text-primary:   #1f2937;  /* 13.74 cream · 14.68 white · 13.34 raised   */
+  --text-secondary: #374151;  /*  9.65 ·  10.31 ·  9.37                     */
+  --text-muted:     #4b5563;  /*  7.07 ·   7.56 ·  6.87 — safe on all three */
+  /* Deliberately darker than the brand gray-500 #6b7280. That value measures
+     only 4.52:1 on cream and 4.39:1 on --bg-raised, i.e. it FAILS AA-small on
+     raised and clears cream by two hundredths — exactly the trap MCO hit with
+     --text-muted on --bg-raised. #5d6570 clears all three surfaces (5.52 /
+     5.90 / 5.36), so the token is safe wherever a subtitle lands. */
+  --text-dim:       #5d6570;
+  --ctrl-border:    #6b7280;  /* control edges — 4.52:1 on cream, ≥3:1 ✓    */
+  --accent:         #B7410E;  /* terracotta. FILL-ONLY; white on it 5.56:1  */
+  --accent-light:   #cf5a26;  /* 3.82:1 on cream — hover/line grade only    */
+  --accent-dk:      #8f320a;  /* pressed/hover fill; white on it 7.99:1     */
+  --accent-line:    #8f320a;  /* 7.48:1 cream — lines, icons, text, links   */
+  --accent-hover:   rgba(183,65,14,0.08);
+  --text-on-accent: #ffffff;
+  --selection-ring: #8f320a;  /* map selection halo, over a 1px white casing */
+  --selection-casing: 1px;    /* casing width the map JS draws under the ring */
+  --sage:           #6B8E5A;  /* 3.48:1 — line/graphic grade only           */
+  --sage-dark:      #52704a;  /* 5.21:1 — text grade                        */
+  --ochre-dark:     #8a6620;  /* 4.91:1 — eyebrows and panel titles         */
+  --brand-gradient: linear-gradient(90deg, #8f320a, #B7410E, #cf5a26, #B7410E, #8f320a);
+  --glass:          rgba(255,255,255,0.90);
+  --shadow:         0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --scrim:          rgba(0,0,0,0.35);
+  --input-bg:       #ffffff;
+  --ctrl-icon-filter: none;   /* vendor glyphs are dark; light theme keeps them */
+  --map-bg:         #faf7f2;  /* matches --bg-deep so the map dissolves into the page */
+  --map-state-line: #ffffff;
+  /* County outlines are near-invisible in the light theme — at statewide zoom
+     they read as noise over the fills. The county layer is always present;
+     this token's low alpha is what hides it (county.js never toggles layer
+     visibility). The high-contrast block swaps in a solid color. */
+  --map-county-line: rgba(31,41,55,0.25);
+  /* Data-encoding, not chrome: the "no data" fill. A legend must pair it with
+     a text label — color alone is never the only channel (§6 of HOUSE-STYLE). */
+  --no-data:        #cccccc;
+}
+
+/* High-contrast. WHITE-based maximum contrast, NOT MCO's black-based theme:
+   this brand is light-first, and a user who asks for more contrast on a cream
+   page expects paper-white and ink, not an inverted screen. Surfaces go to
+   pure white, text to pure black, the accent darkens to the --accent-line
+   value (so fills and lines converge), --shadow drops out entirely and borders
+   carry the structure instead, and --glass goes near-opaque because a blurred
+   translucent panel cannot GUARANTEE a contrast ratio over arbitrary map
+   content. County outlines switch on so polygon shape survives without color.
+
+   Measured (all on #ffffff; raised #f0f0f0 in parentheses):
+     --text-primary  #000000  21.00 (18.43)   --text-secondary #111827 17.74 (15.57)
+     --text-muted    #1f2937  14.68 (12.88)   --text-dim       #374151 10.31 (9.04)
+     --accent-line   #7a2a08   9.71  (8.52)   --accent         #8f320a  7.99 (7.01)
+     white on --accent 7.99                   white on --accent-dk 9.71 */
+[data-theme="high-contrast"] {
+  --bg-deep:        #ffffff;
+  --bg-surface:     #ffffff;
+  --bg-raised:      #f0f0f0;
+  --border:         #1f2937;
+  --border-glass:   rgba(0,0,0,0.35);
+  --text-primary:   #000000;
+  --text-secondary: #111827;
+  --text-muted:     #1f2937;
+  --text-dim:       #374151;
+  --ctrl-border:    #1f2937;
+  --accent:         #8f320a;
+  --accent-light:   #B7410E;
+  --accent-dk:      #7a2a08;
+  --accent-line:    #7a2a08;
+  --accent-hover:   rgba(143,50,10,0.12);
+  --text-on-accent: #ffffff;
+  --selection-ring: #000000;
+  --selection-casing: 1.5px;
+  --sage:           #52704a;
+  --sage-dark:      #3d543a;
+  --ochre-dark:     #6e511a;
+  --brand-gradient: linear-gradient(90deg, #7a2a08, #8f320a, #B7410E, #8f320a, #7a2a08);
+  --glass:          rgba(255,255,255,0.98);
+  --shadow:         none;
+  --scrim:          rgba(0,0,0,0.6);
+  --input-bg:       #ffffff;
+  --ctrl-icon-filter: none;
+  --map-bg:         #ffffff;
+  --map-state-line: #000000;
+  --map-county-line: #1f2937;
+  --no-data:        #d9d9d9;  /* pair with an outline, not just the fill */
+}
+
+/* ── 2. Stacking ladder ───────────────────────────────────────────────────
+   Ported verbatim from mco-theme.css — the tiers are deliberately identical
+   across the two kits so a component can move between them unchanged.
+
+   One ladder for every floating surface. Add to a tier — don't invent a
+   number. MapLibre's own .maplibregl-ctrl-* containers ship with z-index 2
+   from the vendor stylesheet, so anything meant to sit over the map controls
+   (notably map popups, which ship with NO z-index) has to be above that.
+   The detail tier stays BELOW the chrome so a docked detail surface can never
+   cover the navbar; <dialog> lives in the browser's top layer and outranks
+   all of these regardless. */
+:root {
+  --z-map-ctrl:      2;   /* vendor .maplibregl-ctrl-* containers          */
+  --z-map-notice:   20;   /* empty-state / error callouts over the map     */
+  --z-map-progress: 30;   /* loading bars and notes                        */
+  --z-map-panel:    40;   /* docked panels (legend, sidebar) + scrim       */
+  --z-detail:       60;   /* docked detail surface (.sfsa-card / sheet)    */
+  --z-drawer:       70;   /* off-canvas drawer, over the detail surface    */
+  --z-chrome:       90;   /* secondary chrome bars                         */
+  --z-chrome-top:  100;   /* navbar                                        */
+  --z-flyout:      150;   /* dropdowns / combobox results                  */
+  --z-cursor:      200;   /* pointer-following tooltip                     */
+  --z-toast:       400;   /* toast — above everything                      */
+}
+
+/* ── 3. Reset & accessibility utilities ──────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  transition: background var(--transition), color var(--transition);
+}
+
+/* The brand voice is Roboto Black for headings; the variable font covers the
+   whole axis so this costs no extra request. Components that need a lighter
+   heading (the navbar eyebrow, panel titles) set their own weight by class,
+   which outranks these element selectors. */
+h1, h2, h3, h4, h5, h6 { font-weight: var(--heading-weight); line-height: 1.2; }
+
+/* Reduced motion: blanket CSS clamp. Map camera animations are a JS concern —
+   gate them with a live media-query check, never a boot snapshot. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration:  0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* The UA's [hidden] { display: none } loses to any rule that sets display
+   explicitly, so flex/grid elements stay visible as empty strips when hidden
+   from JS. Restate it with priority. */
+[hidden] { display: none !important; }
+
+/* Visually-hidden text for screen-reader announcements + skip-link targets. */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important; height: 1px !important;
+  padding: 0 !important; margin: -1px !important;
+  overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important; border: 0 !important;
+}
+
+/* ONE universal keyboard focus ring — the only focus rule in the kit. Never
+   enumerate per-selector rules: a control added later would ship without one.
+   --accent clears 3:1 against every surface in both themes (5.20 on cream,
+   7.99 on high-contrast white), so it is safe as a non-text indicator. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Skip link (WCAG 2.4.1): first focusable element on the page, jumps past the
+   chrome. Markup in snippets/skip-link.html. */
+.sfsa-skip-link {
+  position: fixed; left: 0.5rem; top: -100px;
+  z-index: calc(var(--z-toast) + 10);
+  padding: 0.5rem 0.9rem;
+  background: var(--accent); color: var(--text-on-accent);
+  border-radius: var(--radius-md);
+  font-weight: 700; font-size: 0.85rem; text-decoration: none;
+}
+.sfsa-skip-link:focus { top: 0.5rem; }
+
+/* ── 4. MapLibre control polish ───────────────────────────────────────────
+   Glass treatment for the vendor controls so they read as part of the app
+   chrome. --ctrl-icon-filter exists for parity with mco-theme.css (which
+   inverts the vendor's dark glyphs on dark themes); both Sustainable FSA
+   themes are light, so it resolves to `none` in both — kept so a consumer can
+   override it and so the selector list matches MCO's. */
+.maplibregl-map { background: var(--map-bg); }
+
+.maplibregl-ctrl-group {
+  background: var(--glass) !important;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--ctrl-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow) !important;
+  transition: background var(--transition), border-color var(--transition);
+}
+.maplibregl-ctrl-group button {
+  background: transparent !important;
+  border-color: var(--ctrl-border) !important;
+  transition: background var(--transition);
+}
+.maplibregl-ctrl-group button:hover { background: var(--accent-hover) !important; }
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: var(--ctrl-icon-filter, none); }
+/* Icon for a "zoom to full extent" control. The stroke is dark like the vendor
+   icons so --ctrl-icon-filter would flip it in lockstep with them. */
+.maplibregl-ctrl-fit .maplibregl-ctrl-icon {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23202020' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='4 8 4 4 8 4'/><polyline points='20 8 20 4 16 4'/><polyline points='4 16 4 20 8 20'/><polyline points='20 16 20 20 16 20'/></svg>");
+  background-size: 60% 60%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.maplibregl-ctrl-attrib { background: var(--glass) !important; color: var(--text-muted) !important; }
+/* Attribution links are UNDERLINED, not color-only. mco-theme.css sets only a
+   color here — a known WCAG 1.4.1 defect (link-in-text-block: color alone is
+   not a sufficient channel for CVD users). Fixed in this kit from day one. */
+.maplibregl-ctrl-attrib a {
+  color: var(--accent-line) !important;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.maplibregl-ctrl-attrib a:hover { text-decoration-thickness: 2px; }
+.maplibregl-ctrl-attrib button.maplibregl-ctrl-attrib-button { filter: var(--ctrl-icon-filter, none); }
+/* Vendor default is 2; restated so the whole stacking ladder is greppable.
+   With viewport-fit=cover the corner containers need the safe-area insets
+   themselves, or the attribution lands under the home indicator. NOTE:
+   env() is inert unless the page sets viewport-fit=cover in its viewport
+   meta — see snippets/head.html. */
+.maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right,
+.maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right {
+  z-index: var(--z-map-ctrl);
+}
+/* --sheet-h lifts the bottom corners clear of an open bottom sheet (§5
+   .sfsa-card). It defaults to 0px, so this is a no-op until JS stamps it. */
+.maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--sheet-h, 0px));
+  transition: padding-bottom var(--transition);
+}
+.maplibregl-ctrl-top-left, .maplibregl-ctrl-bottom-left { padding-left: env(safe-area-inset-left); }
+.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right { padding-right: env(safe-area-inset-right); }
+
+/* ── 5. Component shells ──────────────────────────────────────────────────── */
+
+/* Navbar. Structure:
+     .sfsa-navbar > .logo-link + .nav-divider + .brand + .controls + .nav-meta
+
+   DELTA vs mco-theme.css: the bar is opaque --bg-surface (white), not the MCO
+   glass-dark treatment. The Sustainable FSA identity is a white header with a
+   hairline rule (see the org site's _includes/header.html), and the wide
+   banner lockup is drawn on white — a translucent bar would tint it. */
+.sfsa-navbar {
+  flex-shrink: 0;
+  position: relative;
+  /* --nav-gap drives BOTH the flex gap and the lockup divider's negative
+     margin, so the brand rhythm survives any change to the gap (§6 tightens it
+     at ≤1060px). Overriding the gap directly would desynchronise them. */
+  --nav-gap: 0.75rem;
+  display: flex; align-items: center; gap: var(--nav-gap);
+  /* Left padding matches the vertical padding so the 40px logo lockup sits
+     with square margins in the 52px bar (≈6px on all three sides). */
+  padding: 0.4rem max(1rem, env(safe-area-inset-right)) 0.4rem max(0.4rem, env(safe-area-inset-left));
+  min-height: 52px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; row-gap: 0.4rem;
+  z-index: var(--z-chrome-top);
+}
+.sfsa-navbar::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px; background: var(--brand-gradient); pointer-events: none;
+}
+
+/* Brand lockup images. Two SIBLING <img> elements inside one .logo-link,
+   toggled by a pure-CSS breakpoint swap (§6, ≤750px) — no JS, no srcset, and
+   no layout shift, because each is sized explicitly:
+
+     <a class="logo-link" href="/" aria-label="Sustainable FSA — home">
+       <img class="banner-img" src="…/sustainable-fsa-banner.svg"
+            alt="Sustainable FSA" width="1225" height="350">
+       <img class="badge-img"  src="…/sustainable-fsa-badge.svg" alt="" aria-hidden="true">
+     </a>
+
+   Give the WIDE banner the real alt text and the badge an empty one: the two
+   never show at once, and the link's aria-label names it either way.
+   The banner's intrinsic 1225×350 means a 40px height renders 140px wide. */
+.logo-link { display: flex; align-items: center; flex-shrink: 0; }
+.logo-link > img.banner-img { height: 40px; width: auto; display: block; }
+.logo-link > img.badge-img  { height: 40px; width: 40px; border-radius: 6px; display: none; }
+
+.nav-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+/* The brand lockup reads as one unit: pull the divider in so logo ↔ divider ↔
+   title sit at 0.4rem — the same rhythm as the squared 0.4rem edge margins —
+   while the full navbar gap resumes after the lockup. Derived from --nav-gap
+   rather than hard-coded, so tightening the gap can't squeeze the lockup: at
+   the 0.75rem default this is −0.35rem, and at the ≤1060px 0.5rem gap it
+   becomes −0.1rem, holding the 0.4rem rhythm either way. */
+.sfsa-navbar > .nav-divider { margin-inline: calc(0.4rem - var(--nav-gap)); }
+.brand { display: flex; flex-direction: column; justify-content: center; flex-shrink: 0; line-height: 1.2; }
+.brand-title    { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; margin: 0; }
+.brand-subtitle { font-size: 0.55rem; font-weight: 400; letter-spacing: 0.04em; font-style: italic; color: var(--text-dim); white-space: nowrap; }
+.controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; row-gap: 0.3rem; }
+.nav-meta { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; margin-left: auto; }
+/* <label> naming a control in the bar. Shed VISUALLY at ≤1400px (§6). */
+.control-label { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+
+/* Buttons. Hover/pressed borders use --accent-line, not --accent: on a light
+   ground the two are close in weight, but keeping the MCO discipline means an
+   app can restyle --accent (a fill) without silently weakening a border. */
+.nav-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px; min-height: 34px;
+  border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
+  background: none; color: var(--text-secondary);
+  cursor: pointer; font-size: 0.78rem; font-weight: 500;
+  font-family: inherit; white-space: nowrap; flex-shrink: 0;
+  transition: var(--transition);
+}
+.nav-btn:hover { background: var(--accent-hover); border-color: var(--accent-line); color: var(--text-primary); }
+.nav-btn svg { flex-shrink: 0; stroke: currentColor; }
+.nav-btn.icon-only { padding: 0.4rem; min-width: 34px; justify-content: center; }
+.nav-btn[aria-pressed="true"] { background: var(--accent-hover); border-color: var(--accent-line); color: var(--text-primary); }
+.nav-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+.nav-btn[disabled]:hover { background: none; border-color: var(--ctrl-border); color: var(--text-secondary); }
+
+.sfsa-btn-info {
+  border-radius: 50%; border-color: var(--accent-line);
+  color: var(--accent-line); font-size: 1rem; font-weight: 700;
+  padding: 0; width: 34px; height: 34px; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.sfsa-btn-info:hover {
+  background: var(--accent); border-color: var(--accent-dk);
+  color: var(--text-on-accent);
+}
+
+/* Segmented buttons: a .nav-btn group with fused borders. Deliberately a
+   step shorter than the 34px nav buttons — a same-height fused group reads
+   as heavy in the bar; flex centering keeps the baselines aligned. */
+.seg-btns { display: flex; gap: 0; }
+.seg-btn {
+  padding: 4px 10px; min-height: 30px; height: 30px;
+  border-radius: 0; border-right-width: 0;
+  font-size: 0.74rem; font-weight: 600;
+}
+.seg-btn:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.seg-btn:last-child  { border-radius: 0 var(--radius-md) var(--radius-md) 0; border-right-width: 1px; }
+/* Pressed state is a FILL (--accent) carrying --text-on-accent at 5.56:1, not
+   a tint: the pressed segment must be unmistakable without relying on hue. */
+.seg-btn[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent-dk);
+  color: var(--text-on-accent);
+}
+.seg-btn[aria-pressed="true"]:hover { background: var(--accent-dk); color: var(--text-on-accent); }
+
+/* Range control + live output. NEW in this kit (mco-theme.css ships none).
+   Cross-browser: WebKit/Blink style the thumb through ::-webkit-slider-thumb
+   on an appearance:none input; Firefox uses ::-moz-range-thumb. The two
+   pseudo-elements CANNOT share a rule — a selector list containing an unknown
+   pseudo-element is dropped whole — so every thumb declaration is written
+   twice on purpose. Do not "tidy" them together.
+
+   Structure:  .sfsa-range > label.control-label + input[type=range] + output */
+.sfsa-range { display: flex; align-items: center; gap: 0.5rem; }
+.sfsa-range > output {
+  font-family: var(--font-mono);
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 5ch; text-align: right;
+}
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; min-width: 7rem;
+  /* Height IS the touch target: the track is drawn 4px tall inside it, and the
+     padding around the track comes from this box (bumped to 40px under
+     hover:none in §6). */
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: var(--ctrl-border);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px; border-radius: 2px;
+  background: var(--ctrl-border);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);   /* casing keeps the thumb legible on any track */
+  box-shadow: 0 0 0 1px var(--accent-dk);
+  margin-top: -7px;                      /* centre the 18px thumb on the 4px track */
+  transition: background var(--transition);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);
+  box-shadow: 0 0 0 1px var(--accent-dk);
+  transition: background var(--transition);
+}
+input[type="range"]:hover::-webkit-slider-thumb { background: var(--accent-light); }
+input[type="range"]:hover::-moz-range-thumb     { background: var(--accent-light); }
+input[type="range"][disabled] { cursor: not-allowed; opacity: 0.45; }
+
+/* Refresh/liveness status: read-only, deliberately subordinated. Add .static
+   when the view isn't live (historical modes) to stop the pulse. The dot uses
+   --sage (3.48:1 on cream): a ≤6px dot is a non-text graphical object, so 3:1
+   is the bar — never put TEXT in --sage, that is --sage-dark's job. */
+.refresh-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem; color: var(--text-muted);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.refresh-status .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--sage);
+  box-shadow: 0 0 0 2px var(--accent-hover);
+  animation: sfsa-refresh-pulse 2.4s ease-in-out infinite;
+}
+@keyframes sfsa-refresh-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .refresh-status .dot { animation: none; }
+}
+.refresh-status.static .dot { animation: none; box-shadow: none; background: var(--text-dim); }
+
+/* Toast. One per page. --sheet-h keeps it above an open bottom sheet. */
+.sfsa-toast {
+  position: fixed; bottom: calc(1.5rem + var(--sheet-h, 0px)); left: 50%;
+  transform: translateX(-50%) translateY(0.75rem);
+  background: var(--bg-surface);
+  border: 1px solid var(--accent-line);
+  border-radius: 6px; padding: 0.5rem 1rem;
+  font-size: 0.82rem; color: var(--text-primary);
+  opacity: 0; transition: opacity 0.2s, transform 0.2s, bottom var(--transition);
+  pointer-events: none; z-index: var(--z-toast);
+  box-shadow: var(--shadow);
+}
+.sfsa-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Pointer-following tooltip. Decorative for AT: keep it aria-hidden and route
+   the same content through a live region. */
+.sfsa-tooltip {
+  position: fixed;
+  background: var(--glass);
+  border: 1px solid var(--accent-line);
+  border-radius: 5px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem; font-weight: 500;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: var(--z-cursor);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.1s;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--shadow);
+}
+.sfsa-tooltip.visible { opacity: 1; }
+.sfsa-tooltip .tooltip-name { font-size: 0.78rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+.sfsa-tooltip .tooltip-sub {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.sfsa-tooltip .tooltip-val {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--accent-line);
+  font-weight: 700;
+  margin-top: 3px;
+}
+
+/* Modal: native <dialog class="sfsa-modal">. Wire it so a backdrop click
+   closes and focus returns to the opener. */
+.sfsa-modal { background: transparent; border: none; padding: 1rem; position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); }
+.sfsa-modal::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+.info-modal-box {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 10px; width: min(540px, calc(100vw - 4rem));
+  max-height: calc(100dvh - 4rem); overflow-y: auto;
+  padding: 1.5rem; box-shadow: var(--shadow);
+}
+.info-modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; gap: 1rem; }
+.info-modal-title    { font-size: 1.05rem; font-weight: var(--heading-weight); color: var(--text-primary); margin: 0; }
+.info-modal-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+.modal-close { display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--ctrl-border); border-radius: 6px; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; line-height: 1; flex-shrink: 0; min-width: 34px; min-height: 34px; transition: var(--transition); }
+.modal-close:hover { color: var(--text-primary); border-color: var(--accent-line); background: var(--accent-hover); }
+.info-section { margin-bottom: 1.25rem; }
+.info-section:last-child { margin-bottom: 0; }
+/* Section eyebrow in --ochre-dark (4.91:1 on cream, 5.25:1 on white) — the
+   brand's secondary heading color. */
+.info-section h3 { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ochre-dark); margin-bottom: 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
+.info-section p, .info-section ul { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+.info-section ul { padding-left: 1.1rem; }
+.info-section li { margin-bottom: 0.2rem; }
+/* Links inside prose are underlined, not color-only (WCAG 1.4.1 —
+   link-in-text-block). Color alone fails for CVD users; hover-only
+   underlines don't count. */
+.info-section a { color: var(--accent-line); text-decoration: underline; text-underline-offset: 2px; }
+.info-section a:hover { text-decoration-thickness: 2px; }
+.info-section kbd {
+  font-family: var(--font-mono);
+  font-size: 0.75em;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--text-primary);
+}
+.info-section code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-raised);
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: var(--text-primary);
+}
+/* Tables in help copy. ui/help.js turns GFM tables ON, and help copy in this
+   fleet is mostly tables, so they need a house look: hairline row rules in
+   --border, a quiet left-aligned header row, no zebra, no vertical rules.
+
+   NO SCROLL CONTAINER OF ITS OWN. The usual responsive-table trick
+   (display:block + overflow-x:auto) makes the table a scrollable region with
+   nothing focusable inside it, which axe flags as scrollable-region-focusable
+   (SERIOUS) the moment a table really is too wide. Instead the cells wrap and
+   the table never exceeds its column; anything genuinely unwrappable (a long
+   URL in a code cell) falls to .info-modal-box, which already scrolls and
+   holds the close button, so it is keyboard-reachable. */
+.sfsa-modal .info-section table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.sfsa-modal .info-section th,
+.sfsa-modal .info-section td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.sfsa-modal .info-section th { font-weight: 700; color: var(--text-secondary); }
+.sfsa-modal .info-section tr:last-child td { border-bottom: none; }
+
+/* Floating glass panel (legend, filter dock, …). The toggle carries
+   aria-expanded and the body gets [hidden] once collapsed. Structure:
+     .sfsa-panel > .sfsa-panel-head (> .sfsa-panel-title + .sfsa-panel-toggle)
+                 + .sfsa-panel-body */
+.sfsa-panel {
+  position: absolute;
+  background: var(--glass);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  z-index: var(--z-map-panel);
+  max-width: min(320px, calc(100vw - 2rem));
+}
+.sfsa-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+}
+.sfsa-panel-title {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ochre-dark);
+}
+.sfsa-panel-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: none; border: 1px solid var(--ctrl-border); border-radius: var(--radius-sm);
+  color: var(--text-dim); cursor: pointer; font-family: inherit;
+  transition: var(--transition);
+}
+.sfsa-panel-toggle:hover { color: var(--text-primary); border-color: var(--accent-line); background: var(--accent-hover); }
+/* The caret shows the ACTION, not the state (markup glyph is an up-chevron):
+   expanded → points down ("collapse toward the bottom dock"); collapsed →
+   points up ("expand upward"). */
+.sfsa-panel-toggle svg { transition: transform var(--transition); transform: rotate(180deg); }
+.sfsa-panel-toggle[aria-expanded="false"] svg { transform: none; }
+/* Collapse is animated (slide + fade), then the collapse helper sets [hidden]
+   so collapsed content leaves the tab order. The max-height cap comfortably
+   fits house panels; raise it locally for an unusually tall one. Reduced
+   motion clamps the transition. */
+.sfsa-panel-body {
+  padding: 0 0.75rem 0.75rem;
+  max-height: 500px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height var(--transition), opacity var(--transition);
+}
+.sfsa-panel-body.is-collapsing { max-height: 0; opacity: 0; }
+
+/* Detail card. NEW in this kit (mco-theme.css has no card; MCO apps hand-roll
+   a "station sheet" each time). It is a glass surface of the same grade as
+   .sfsa-panel, one tier up on --z-detail — below the chrome, above the map
+   panels — and under compact it becomes a bottom sheet.
+
+   Structure:
+     .sfsa-card > .sfsa-card-head (> .sfsa-card-title + .card-close)
+                + .sfsa-card-body
+
+   Positioning is the app's job (the kit does not know which corner is free);
+   set inset properties on .sfsa-card in app CSS. Under compact, §6 overrides
+   whatever the app chose and docks the card to the bottom edge. */
+.sfsa-card {
+  position: absolute;
+  z-index: var(--z-detail);
+  width: min(360px, calc(100vw - 2rem));
+  max-height: min(70dvh, 640px);
+  display: flex; flex-direction: column;
+  background: var(--glass);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.sfsa-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 0.75rem; padding: 0.75rem 0.75rem 0.5rem;
+  flex-shrink: 0;
+}
+.sfsa-card-title {
+  font-size: 0.95rem; font-weight: var(--heading-weight);
+  color: var(--text-primary); line-height: 1.2; margin: 0;
+}
+.sfsa-card-body {
+  padding: 0 0.75rem 0.75rem;
+  overflow-y: auto;
+  font-size: 0.85rem; color: var(--text-secondary); line-height: 1.55;
+  /* Momentum scrolling inside the sheet without the page rubber-banding. */
+  overscroll-behavior: contain;
+}
+/* Sized like .modal-close and bumped to 44px on touch (§6) — a card is the
+   surface a phone user dismisses most often, so it gets the AAA target. */
+.card-close {
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: 1px solid var(--ctrl-border); border-radius: 6px;
+  color: var(--text-muted); font-size: 1.2rem; cursor: pointer; line-height: 1;
+  flex-shrink: 0; min-width: 34px; min-height: 34px;
+  transition: var(--transition);
+}
+.card-close:hover { color: var(--text-primary); border-color: var(--accent-line); background: var(--accent-hover); }
+
+/* Combobox: a search input plus an ARIA listbox of results. NEW in this kit —
+   mco-theme.css deliberately leaves the search field app-owned; Sustainable FSA
+   apps all need the same county/producer lookup, so it is standardised here.
+
+   Structure (ARIA 1.2 combobox, listbox popup):
+     <div class="sfsa-combobox">
+       <input type="search" role="combobox" aria-expanded="false"
+              aria-controls="results" aria-autocomplete="list">
+       <kbd>/</kbd>
+       <ul id="results" role="listbox"> <li role="option" …> </ul>
+     </div> */
+.sfsa-combobox { position: relative; display: flex; align-items: center; gap: 0.4rem; }
+.sfsa-combobox input[type="search"],
+.sfsa-combobox input[type="text"] {
+  min-height: 34px;
+  padding: 0.35rem 0.6rem;
+  background: var(--input-bg);
+  border: 1px solid var(--ctrl-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 0.8rem;
+  transition: var(--transition);
+}
+.sfsa-combobox input::placeholder { color: var(--text-dim); opacity: 1; }
+.sfsa-combobox input:hover { border-color: var(--accent-line); }
+/* "Press /" hint chip. A physical-keyboard affordance — §5's search collapse
+   hides it in the compact overlay, where it would sit over the typed text. */
+.sfsa-combobox kbd {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+/* The dropdown sits on the opaque --bg-surface, NOT --glass: results are text
+   over whatever the map happens to show, and blur cannot guarantee a ratio. */
+.sfsa-combobox [role="listbox"] {
+  position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  z-index: var(--z-flyout);
+  margin: 0; padding: 0.25rem; list-style: none;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  max-height: min(320px, 50dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sfsa-combobox [role="option"] {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem; color: var(--text-secondary);
+  cursor: pointer;
+}
+.sfsa-combobox [role="option"] .option-sub {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  color: var(--text-muted); flex-shrink: 0;
+}
+/* Selectable rows only: the zero-results and overflow rows are options with
+   aria-disabled="true" (ui/search.js), and a hover highlight on a row that
+   cannot be picked is a lie. */
+.sfsa-combobox [role="option"]:not([aria-disabled="true"]):hover { background: var(--accent-hover); color: var(--text-primary); }
+/* In the ARIA combobox pattern aria-selected marks the ACTIVE option that the
+   arrow keys have moved to (the input keeps DOM focus, so :focus-visible never
+   fires here). It must be distinguishable from a mere hover and must not rely
+   on color alone: the inset bar and the weight change carry it for CVD users
+   and in forced-colors mode. */
+.sfsa-combobox [role="option"][aria-selected="true"] {
+  background: var(--accent-hover);
+  color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 0 var(--accent-line);
+}
+.sfsa-combobox [role="option"][aria-disabled="true"] { color: var(--text-dim); cursor: not-allowed; }
+/* Zero-results row (.option-empty) and the counted overflow row (.option-more):
+   text, never an empty box. Both are disabled OPTIONS — a listbox whose only
+   child is a presentation row has no options at all, which is an axe-critical
+   aria-required-children failure. --text-muted, not the --text-dim above:
+   these rows carry the only answer the reader gets. */
+.sfsa-combobox [role="listbox"] .option-empty {
+  padding: 0.5rem; font-size: 0.8rem; color: var(--text-muted); font-style: italic;
+}
+
+/* Collapsible search ─────────────────────────────────────────────────────────
+   At compact widths a navbar search field costs more width than it earns, but
+   hiding it strands the only keyboard route to a named feature. Instead it
+   collapses into a disclosure button grouped with the other nav buttons and
+   expands as a full-width overlay bar under the navbar.
+
+   The breakpoint is the ladder's existing 640px compact edge rather than a
+   fifth number: compact is exactly where an inline field stops paying for
+   itself. Deliberately width-only — unlike the compact MQ in §6 it has no
+   max-height clause, because a short landscape window is still wide enough for
+   an inline field.
+
+   Add .sfsa-search-collapse to the search wrapper and .sfsa-search-toggle to
+   the button:
+     <div class="sfsa-combobox sfsa-search-collapse" id="search-wrap"> … </div>
+     <button class="nav-btn icon-only sfsa-search-toggle"
+             aria-expanded="false" aria-controls="search-wrap"> … </button>
+   Inner selectors are generic on purpose (input[type=search], kbd), so this
+   works whatever the app calls its own parts. */
+.sfsa-search-toggle { display: none; }
+@media (max-width: 640px) {
+  .sfsa-search-toggle { display: flex; }
+  .sfsa-navbar .sfsa-search-collapse { display: none; }
+  .sfsa-navbar .sfsa-search-collapse.is-open {
+    display: flex;
+    /* .sfsa-navbar is the positioned ancestor, so top:100% lands the bar
+       directly beneath the whole (possibly wrapped) navbar. */
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    z-index: var(--z-flyout);
+    padding: 0.5rem max(0.75rem, env(safe-area-inset-right))
+             0.5rem max(0.75rem, env(safe-area-inset-left));
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  /* Fill the bar — flex-basis beats the field's own fixed and :focus widths. */
+  .sfsa-navbar .sfsa-search-collapse.is-open input[type="search"],
+  .sfsa-navbar .sfsa-search-collapse.is-open input[type="search"]:focus {
+    flex: 1 1 0; width: auto;
+  }
+  /* A "press /" hint is a physical-keyboard affordance; in the overlay it would
+     sit on top of the text being typed. */
+  .sfsa-navbar .sfsa-search-collapse.is-open kbd { display: none; }
+}
+
+/* Scrim behind off-canvas drawers on compact viewports. Pair with a panel at
+   --z-drawer; the scrim sits one tier below it. */
+.sfsa-scrim {
+  position: fixed; inset: 0;
+  background: var(--scrim);
+  z-index: var(--z-map-panel);
+}
+
+/* ── 6. Responsive & touch ────────────────────────────────────────────────
+   Breakpoint ladder, ported from mco-web-style HOUSE-STYLE.md §3:
+     1400  shed button/control text labels
+     1060  tighten chrome gaps
+      750  collapse the brand lockup (wide banner → square badge)
+      640  shed .refresh-status, collapse search; COMPACT begins
+
+   "Compact" also has a height variant. The string is, verbatim:
+
+       (max-width: 640px), (max-height: 560px)
+
+   A short landscape phone is compact too. KEEP IN SYNC with
+   viewport.COMPACT_MQ in core/core.js — that constant and this comment are the
+   only two places the string is authored, and the compact @media block at the
+   bottom of this file must match it character for character.
+
+   Layout lives in real @media rules (no flash before deferred JS runs);
+   behavior decisions (sheet vs anchored card, auto-collapse) key off the JS
+   viewport helper. */
+@media (max-width: 1400px) {
+  /* DELTA vs mco-theme.css: MCO display:none's .btn-label and only clips
+     .control-label. Here BOTH use the clip pattern. A .btn-label is often the
+     only accessible name a consumer remembered to give its button, and
+     display:none removes it from the accessibility tree — the button then goes
+     nameless at every width below 1400px (axe: button-name). Clipping keeps
+     the name and costs nothing. Buttons should STILL carry a permanent
+     aria-label; this is the belt to that suspenders. */
+  .sfsa-navbar .btn-label,
+  .sfsa-navbar .control-label {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0);
+    white-space: nowrap; border: 0;
+  }
+  /* Once the label is out of flow, the icon is left sitting in label-sized
+     padding (6px 12px) — visibly wider than the .icon-only buttons next to it
+     in the same bar. Square it up so a mixed row of labelled and icon-only
+     buttons reads as one set. .sfsa-btn-info is untouched: its circle is a
+     deliberate distinction, and it never carries a .btn-label. */
+  .sfsa-navbar .nav-btn:has(> .btn-label) {
+    padding: 0.4rem; min-width: 34px; justify-content: center;
+  }
+}
+@media (max-width: 1060px) {
+  /* Tighten via the custom property, never `gap` directly — the lockup
+     divider's margin is derived from it. */
+  .sfsa-navbar { padding-right: 0.6rem; --nav-gap: 0.5rem; }
+  .nav-meta { gap: 0.3rem; }
+}
+/* Brand lockup collapse. The wide banner (1225×350 → 140px at 40px tall) is
+   most of the bar on a phone, so it swaps for the square badge — a pure CSS
+   toggle between two sibling <img>s in .logo-link, no JS and no reflow.
+
+   The text lockup is VISUALLY hidden rather than display:none'd on purpose:
+   .brand-title is often the page's <h1>, and a document outline shouldn't
+   disappear at a breakpoint. Screen readers still get the app name; sighted
+   users get the badge.
+
+   Consumers that keep the full lockup at every width must restore BOTH the
+   .brand static position and the divider. */
+@media (max-width: 750px) {
+  .logo-link > img.banner-img { display: none; }
+  .logo-link > img.badge-img  { display: block; }
+  .brand {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0);
+    white-space: nowrap; border: 0;
+  }
+  .sfsa-navbar > .nav-divider { display: none; }
+}
+@media (max-width: 640px) {
+  .refresh-status { display: none; }   /* reclaim space on phones */
+}
+
+/* COMPACT — the string below must match the §6 header comment and
+   viewport.COMPACT_MQ in core/core.js exactly. */
+@media (max-width: 640px), (max-height: 560px) {
+  /* The detail card becomes a bottom sheet: docked to the bottom edge, rounded
+     on top only, capped at 45dvh so the map stays the larger half of the
+     screen. Whatever inset the app set for the floating card is overridden
+     here — that is the point of the override.
+
+     While the sheet is open, JS must stamp its rendered height on :root as
+     --sheet-h (including the safe-area padding). The bottom MapLibre corner
+     controls (§4) and the toast (§5) both lift by that amount; nothing else
+     needs to know the sheet exists. Clear it (or set 0px) on close. */
+  .sfsa-card {
+    position: fixed;
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: auto; max-width: none;
+    max-height: 45dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-left: none; border-right: none; border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* WCAG 2.5.5 — comfortable touch targets on touch-only devices. */
+@media (hover: none) {
+  .nav-btn, .seg-btn { min-height: 40px; }
+  /* The :has() arm covers label-shed buttons squared by §6; above 1400px the
+     label makes them wider than 40px anyway, so it's a no-op there. */
+  .nav-btn.icon-only, .sfsa-navbar .nav-btn:has(> .btn-label) { min-width: 40px; }
+  .sfsa-btn-info { width: 40px; height: 40px; }
+  /* Dismiss controls get the AAA 44px target. */
+  .modal-close, .card-close { min-width: 44px; min-height: 44px; }
+  .sfsa-panel-toggle { width: 36px; height: 36px; }
+  .sfsa-combobox input[type="search"],
+  .sfsa-combobox input[type="text"] { min-height: 40px; }
+  .sfsa-combobox [role="option"] { min-height: 44px; align-items: center; }
+  /* The slider's own box IS its hit area — grow it to 40px and scale the thumb
+     with it. margin-top re-centres the enlarged WebKit thumb on the 4px track. */
+  input[type="range"] { height: 40px; }
+  input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -10px; }
+  input[type="range"]::-moz-range-thumb     { width: 24px; height: 24px; }
+}

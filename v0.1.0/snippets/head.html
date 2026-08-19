@@ -1,0 +1,124 @@
+<!-- ==========================================================================
+     sustainable-fsa/style · canonical consumer <head>
+
+     Copy what applies. ORDER MATTERS:
+       metas → CSP → anti-flash script (INLINE) → icons → font preload →
+       stylesheets.
+
+     Two kinds of URL live below, and the difference is deliberate:
+
+       https://sustainable-fsa.com/style/v0.1.0/…   ← kit code, VERSION-PINNED
+       https://sustainable-fsa.com/style/vendor/…   ← vendored third-party
+                                                       libraries, pinned by the
+                                                       directory name instead
+                                                       (maplibre-gl-5.18.0)
+
+     Pin the kit version. Tracking a moving path means a theme change lands in
+     your app unannounced; bump v0.1.0 → v0.2.0 when you have looked at it.
+
+     Everything is served from the same origin as the apps, so subresource
+     integrity is optional here — the pinned path is what protects you. Do not
+     rehost these files on a CDN without adding integrity attributes.
+     ========================================================================== -->
+
+<meta charset="UTF-8">
+<!-- viewport-fit=cover makes env(safe-area-inset-*) live on notched phones.
+     Without it the safe-area paddings in sfsa-theme.css (navbar, MapLibre
+     corner controls, bottom sheet) silently resolve to 0. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="author" content="Sustainable FSA">
+<!-- Brand terracotta --accent. One value: the kit has no dark theme, and the
+     high-contrast theme is a user choice, not an OS color scheme. -->
+<meta name="theme-color" content="#B7410E">
+
+<!-- ▸ Content-Security-Policy. Ship it as a RESPONSE HEADER where you can; the
+     <meta> form below is the fallback for static hosting (GitHub Pages), and
+     it is why frame-ancestors is absent — that directive is ignored in meta.
+
+     'sha256-…' must be the hash of YOUR page's copy of the anti-flash script.
+     The value below is the hash of snippets/anti-flash.html as shipped; if you
+     reformat the script when pasting it, recompute (recipe in that file).
+
+     worker-src blob: is required by MapLibre GL, which spins its tile workers
+     up from blob URLs. connect-src and img-src must also list whatever tile,
+     glyph, sprite, and data origins your map actually fetches — add them, do
+     not relax the directive to '*'.
+
+     If a vendor library trips style-src by writing a style ATTRIBUTE, add
+     style-src-attr 'unsafe-inline' rather than putting 'unsafe-inline' on
+     style-src: the narrower directive keeps <style> injection blocked. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' https://sustainable-fsa.com 'sha256-yKkI+BwINdQyL3EQaYmQ3iDsOs+Or3a6zlgj1sEZN5A=';
+  worker-src blob:;
+  style-src 'self' https://sustainable-fsa.com;
+  font-src https://sustainable-fsa.com;
+  img-src 'self' data: blob: https://sustainable-fsa.com;
+  connect-src 'self' https://sustainable-fsa.com;
+  base-uri 'none';
+  form-action 'none';
+">
+
+<!-- ▸ INLINE the anti-flash script from snippets/anti-flash.html RIGHT HERE —
+     after the CSP, before the first stylesheet. -->
+
+<!-- Page title: "<Short name> · Sustainable FSA". The short name is the
+     shortest DISTINCTIVE word ("Grazing Periods", not "FSA Normal Grazing
+     Period Explorer") — a tab truncates at ~15 characters, and the person
+     reading it already knows what they opened. Social cards get the long form.
+<title>Grazing Periods · Sustainable FSA</title>
+-->
+
+<!-- Social cards (fill in per app):
+<link rel="canonical" href="https://sustainable-fsa.com/…/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Sustainable FSA">
+<meta property="og:title" content="Grazing Periods · Sustainable FSA">
+<meta property="og:description" content="…">
+<meta property="og:url" content="https://sustainable-fsa.com/…/">
+<meta property="og:image" content="https://sustainable-fsa.com/…/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="…">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Grazing Periods · Sustainable FSA">
+<meta name="twitter:description" content="…">
+<meta name="twitter:image" content="https://sustainable-fsa.com/…/assets/og-card.png">
+-->
+
+<!-- Favicons / app icons. Kit-hosted (unversioned — an icon change is not a
+     breaking change), or vendor them into your own repo if you prefer. -->
+<link rel="icon" href="https://sustainable-fsa.com/style/assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="48x48" href="https://sustainable-fsa.com/style/assets/favicon-48x48.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://sustainable-fsa.com/style/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="https://sustainable-fsa.com/style/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://sustainable-fsa.com/style/assets/apple-touch-icon.png">
+
+<!-- House font. Self-hosted variable Roboto, one file for the whole 100–900
+     axis. crossorigin is MANDATORY on a font preload even same-origin: fonts
+     are fetched in CORS mode, and a preload without it fetches the file twice
+     and warns in the console. The @font-face lives in sfsa-theme.css and its
+     src is relative to that stylesheet, so this preload must point at the same
+     versioned path the stylesheet is loaded from. -->
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="https://sustainable-fsa.com/style/v0.1.0/theme/fonts/roboto-v51-latin-wght.woff2">
+
+<!-- MapLibre GL 5.18.0 — map apps only. Vendored; the version is in the path. -->
+<link rel="stylesheet" href="https://sustainable-fsa.com/style/vendor/maplibre-gl-5.18.0/maplibre-gl.css">
+
+<!-- Sustainable FSA house style. Loads AFTER the vendor sheet so §4's control
+     polish wins without needing !important on every declaration. -->
+<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.1.0/theme/sfsa-theme.css">
+
+<!-- ==========================================================================
+     Script tags — place near the END of <body>, in this order:
+
+<script src="https://sustainable-fsa.com/style/vendor/maplibre-gl-5.18.0/maplibre-gl.js"></script>
+<script src="https://sustainable-fsa.com/style/vendor/topojson-client-3.1.0/topojson-client.min.js"></script>
+<script type="module" src="app.js"></script>
+
+     The two vendor files are CLASSIC scripts: they define the globals
+     `maplibregl` and `topojson` and must load before anything reads them.
+     Your own app code is an ES module — deferred by definition, so it runs
+     after both, and after the document has parsed.
+     ========================================================================== -->
