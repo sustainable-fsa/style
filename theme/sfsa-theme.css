@@ -138,10 +138,10 @@
   --ctrl-icon-filter: none;   /* vendor glyphs are dark; light theme keeps them */
   --map-bg:         #faf7f2;  /* matches --bg-deep so the map dissolves into the page */
   --map-state-line: #ffffff;
-  /* County outlines are HIDDEN in the light theme — at statewide zoom they
-     read as noise over the fills. The value is still defined because the
-     county-layer JS reads this property to decide both color and visibility;
-     the high-contrast block turns them on. */
+  /* County outlines are near-invisible in the light theme — at statewide zoom
+     they read as noise over the fills. The county layer is always present;
+     this token's low alpha is what hides it (county.js never toggles layer
+     visibility). The high-contrast block swaps in a solid color. */
   --map-county-line: rgba(31,41,55,0.25);
   /* Data-encoding, not chrome: the "no data" fill. A legend must pair it with
      a text label — color alone is never the only channel (§6 of HOUSE-STYLE). */
