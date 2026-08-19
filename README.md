@@ -51,9 +51,9 @@ shape of a consumer page:
 <script>/* anti-flash theme boot — INLINE, before the first stylesheet */</script>
 
 <link rel="preload" as="font" type="font/woff2" crossorigin
-      href="https://sustainable-fsa.com/style/v0.1.0/theme/fonts/roboto-v51-latin-wght.woff2">
+      href="https://sustainable-fsa.com/style/v0.2.0/theme/fonts/roboto-v51-latin-wght.woff2">
 <link rel="stylesheet" href="https://sustainable-fsa.com/style/vendor/maplibre-gl-5.18.0/maplibre-gl.css">
-<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.1.0/theme/sfsa-theme.css">
+<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.2.0/theme/sfsa-theme.css">
 ```
 
 and at the end of `<body>` — the two vendored UMD scripts define `maplibregl`
@@ -67,7 +67,7 @@ module is deferred by definition, so it runs after both:
 ```
 
 Note the two URL shapes: **kit code is version-pinned**
-(`/style/v0.1.0/…`), **vendored libraries are pinned by their own directory
+(`/style/v0.2.0/…`), **vendored libraries are pinned by their own directory
 name** (`/style/vendor/maplibre-gl-5.18.0/…`) and never carry a kit version. The
 font preload must point at the same versioned path the stylesheet loads from,
 and `crossorigin` on it is mandatory even same-origin — fonts are fetched in
@@ -79,13 +79,13 @@ its exports):
 
 ```js
 import { KIT_VERSION, showToast, initThemeToggle, replaceUrlState }
-  from 'https://sustainable-fsa.com/style/v0.1.0/core/core.js';
+  from 'https://sustainable-fsa.com/style/v0.2.0/core/core.js';
 import { createMap }
-  from 'https://sustainable-fsa.com/style/v0.1.0/map/map.js';
+  from 'https://sustainable-fsa.com/style/v0.2.0/map/map.js';
 import { loadCounties, swapVintage, vintageForYear }
-  from 'https://sustainable-fsa.com/style/v0.1.0/county/county.js';
+  from 'https://sustainable-fsa.com/style/v0.2.0/county/county.js';
 import { initLegend }
-  from 'https://sustainable-fsa.com/style/v0.1.0/ui/legend.js';
+  from 'https://sustainable-fsa.com/style/v0.2.0/ui/legend.js';
 ```
 
 Every kit module carries a `@version` header and JSDoc-style comments on its
@@ -108,7 +108,7 @@ CSS custom properties, kept in lockstep with the theme by CI.
 | `core/core.js` | `KIT_VERSION`, throw-safe storage, escaping, UTC civil-date helpers, `fetchJSON` + promise cache, live `reducedMotion()`, `viewport`, toast, theme, live region, modal, collapsible, search collapse, URL state, `kitUrl` | every page |
 | `map/map.js` | The basemap-less MapLibre setup: cream canvas, no rotation, navigation + fit controls, zoom floor, feature-state helpers, token→paint resolution | map apps |
 | `county/county.js` | The FSA county layer: vintage selection by program year, TopoJSON fetch + session cache, **FSA-string-id joins**, `swapVintage` | county apps |
-| `ui/search.js`, `ui/card.js`, `ui/legend.js`, `ui/export.js`, `ui/help.js` | County search combobox, county detail card, legend (continuous, cyclic wheel, categorical), branded PNG export, markdown help modal | as needed |
+| `ui/search.js`, `ui/card.js`, `ui/drawer.js`, `ui/legend.js`, `ui/export.js`, `ui/help.js` | County search combobox, county detail card, the control drawer (a column of the map row on desktop, an off-canvas overlay with its own scrim on compact), legend (continuous, cyclic wheel, categorical), branded PNG export, markdown help modal | as needed |
 | `vendor/<lib>-<version>/` | MapLibre GL **5.18.0**, topojson-client **3.1.0** as UMD globals — **outside** release snapshots, pinned by library version; manifest in [`vendor/VENDORED.md`](vendor/VENDORED.md) | map apps |
 | `vendor-esm/marked-18.0.10/` | ES-module markdown renderer imported by `ui/help.js` — **inside** release snapshots | help-modal apps |
 | `assets/` | Sustainable FSA banner, MCO logo, favicon set — the one deliberately **mutable** published path | every page |
@@ -127,8 +127,8 @@ preview origin works too), and a consumer's CSP needs no third-party host at
 all. No basemap tiles, no font host, no npm registry: `'self'` plus this origin
 is the entire policy.
 
-**Pinning is the version path.** `https://sustainable-fsa.com/style/v0.1.0/core/core.js`
-is a different file from `…/v0.2.0/core/core.js` forever. There is no alias, no
+**Pinning is the version path.** `https://sustainable-fsa.com/style/v0.2.0/core/core.js`
+is a different file from `…/v0.3.0/core/core.js` forever. There is no alias, no
 `@latest`, nothing that floats. A consumer upgrades by editing its URLs — which
 is a reviewable diff, and the only way this kit ever moves under an app.
 

@@ -155,6 +155,8 @@ carries a kit version (`/style/vendor/maplibre-gl-5.18.0/…`).
 | `d3.json(...)` on a hard-coded topojson URL | the county module's loader (vintage-aware, cached, reports unmatched ids) |
 | a hand-rolled `rowById` join with `padStart(5,"0")` | the county module's FSA-string join |
 | `Inputs.select` / `Inputs.radio` | kit controls wired to URL state |
+| a cell-full of controls, or a stack of floating filter panels | `.sfsa-drawer` + `initDrawer` — a column of the map row on desktop, an off-canvas overlay with `.sfsa-drawer-scrim` on compact (HOUSE-STYLE §3); the app calls `map.resize()` from `onToggle` |
+| a full-height side panel of county details | `.sfsa-card.dock-right`, the opt-in desktop variant of the card (compact is still the bottom sheet) |
 | an inline SVG legend | `ui/legend.js` (continuous, cyclic wheel, or categorical) |
 | a `title`-attribute or d3 tooltip | the kit tooltip + `ui/card.js` for the persistent read |
 | ad-hoc `localStorage` reads | the core module's throw-safe storage, `sfsa-<app>-*` |
@@ -256,13 +258,21 @@ npx playwright install chromium
   trap).
 - Compact viewport (390px): the county card docks, the search collapses, nothing
   overflows horizontally.
+- **Drawer, if the app has one**: on desktop, closing it hands its width to the
+  map and the map redraws at the new size (the `onToggle` → `map.resize()` seam,
+  ~240ms after the slide, immediately under reduced motion — no letterboxed
+  canvas, no stall); a closed drawer's controls are **out of the tab order**; on
+  compact it is an overlay whose scrim dims the map but not the navbar, Escape
+  closes it, and focus lands inside on open and back on the handle on close. Wire
+  `initDrawer` **before** `initDetailCard` — registration order is the Escape
+  order.
 - Post-deploy: poll until a file new to this migration returns 200 on the live
   URL, then repeat the console + axe pass against production.
 
 ## Kit-deferred pieces (keep app-local; do NOT extract)
 
 See [CONSUMERS.md](CONSUMERS.md) § Kit-deferred for the current list — the
-month-wheel legend and the grazing-span chart as of v0.1.0. Leave the app's
+month-wheel legend and the grazing-span chart as of v0.2.0. Leave the app's
 versions in place, swapping only their internals onto kit helpers where trivial
 (tokens, the live region, the export path). If a migration makes one converge
 naturally, propose it as a kit MINOR — that is the intended path to absorption,

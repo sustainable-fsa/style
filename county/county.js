@@ -1,12 +1,12 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · county/county.js · v0.1.0
+   Sustainable FSA house-style kit · county/county.js · v0.2.0
    The FSA county composite: vintage selection, TopoJSON decode, MapLibre
    layers, hover/selection state, and the pointer tooltip.
 
    ES module, no build step. Import it pinned to a release:
 
      import { loadCounties, addCountyLayers, vintageForYear }
-       from 'https://sustainable-fsa.com/style/v0.1.0/county/county.js';
+       from 'https://sustainable-fsa.com/style/v0.2.0/county/county.js';
 
    REQUIRES `window.topojson` — the vendored UMD build, loaded as a CLASSIC
    script BEFORE the app module:

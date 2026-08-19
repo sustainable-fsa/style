@@ -10,6 +10,107 @@ Releases are immutable directories: `vX.Y.Z/` is a byte-copy snapshot with a
 `MANIFEST.sha256`, re-verified by CI on every run. A bad release gets a new
 patch version, never an edit.
 
+## [0.2.0] — 2026-08-19
+
+The control drawer, and the full-height dock for the detail surface that sits
+beside it. Purely additive: every 0.1.0 selector and export keeps its shape, and
+a page that adopts neither new component renders exactly as it did.
+
+### Added
+
+- **`ui/drawer.js`** — `initDrawer`, one module over **two surfaces**. On a
+  desktop viewport the drawer is a **real column** of the app's map row, so
+  closing it hands its width to the map — the one camera change the reader
+  actually asked for; under compact the same element is an **off-canvas overlay**
+  over the map with a scrim behind it, because a 272px fixture on a phone leaves
+  no map to control. Both handles (the edge tab and the navbar hamburger) carry
+  `aria-expanded` and a swapped `aria-label`, written in the same call that flips
+  `.is-closed`, so the accessible state cannot drift from the geometry. Escape
+  closes the drawer **only** while it is compact and open — the desktop fixture
+  is part of the page, not a layer — and `preventDefault()`s the key it consumes
+  so the surfaces below it stand down. Focus follows the overlay in and the
+  opener back out, and it is always moved out **before** the closing slide, since
+  the browser would otherwise blur it to `<body>`. The desktop open/closed state
+  persists under an app-prefixed key; compact starts closed, never persists, and
+  is force-closed on the way in, so a phone visit cannot rewrite a desktop
+  preference. Every one of those decisions reads the live `viewport` helper rather
+  than a boot snapshot. **`map.resize()` is deliberately not wired here** — the
+  kit does not know the app has a map; `onToggle` is the seam, and the recipe
+  (resize ~240ms after the slide, immediately under `reducedMotion()`) is in the
+  module header. Ported from `mt-climate-office/mesonet-explorer` (MIT), which
+  hand-rolls the pattern per app; the deltas — generic selectors, ARIA on both
+  handles, Escape participation, focus management, a closed drawer that leaves
+  the tab order, and the caller-owned resize — are enumerated in the header's
+  § Attribution.
+- **`theme/sfsa-theme.css`** — the `.sfsa-drawer` component family:
+  `.sfsa-drawer` with its single state class `.is-closed`,
+  `.sfsa-drawer-scroll`, `.sfsa-drawer-section`, `.sfsa-drawer-title`, the
+  `.sfsa-drawer-tab` edge handle, the compact-only `.sfsa-drawer-toggle`
+  hamburger, and full-width rules that put the kit's navbar-shaped controls
+  (`.sfsa-range` and its output, `.seg-btns`, `.sfsa-combobox`) into a 272px
+  column. Two contracts are load-bearing and documented in place: the **tab must
+  be the drawer's next sibling**, because both its resting position and its
+  chevron direction are selected through
+  `.sfsa-drawer.is-closed + .sfsa-drawer-tab` and CSS has no previous-sibling
+  selector; and a **closed drawer leaves the tab order with zero JS**, because
+  `visibility` is transitioned alongside the slide in the **closing direction
+  only** — it interpolates discretely, so it holds `visible` for the whole slide
+  and drops out of the accessibility tree exactly when the drawer is gone, while
+  an opening drawer is focusable in the same style pass that focuses it.
+- **`.sfsa-drawer-scrim`**, and the z-index tier it rides on,
+  **`--z-drawer-scrim: 65`**. Deliberately *not* `.sfsa-scrim`: the drawer's
+  scrim is **absolute inside the app's positioned map row** rather than
+  viewport-fixed, so it dims the map — and an open bottom sheet at `--z-detail`
+  (60) — while staying under the drawer that raised it at `--z-drawer` (70) and
+  leaving the chrome above it live. A control drawer is not a modal, and the
+  theme toggle and help button are up there. `.sfsa-scrim` keeps its own meaning
+  (viewport-fixed, at `--z-map-panel`) for anything that must dim the whole
+  window.
+- **`.sfsa-card.dock-right`** and the `sfsa-dock-in` keyframe — an opt-in desktop
+  variant that docks the detail surface **full-height against the right edge of
+  the map** instead of floating in a corner, opaque `--bg-surface` rather than
+  glass, for an app whose card carries a long readout. **CSS-only:**
+  `ui/card.js` is not told about it, and the enter-only animation re-runs by
+  itself every time that module flips `[hidden]` off. Scoped to the not-compact
+  complement of the compact query, so a phone still gets the bottom sheet.
+- **`--drawer-w` (`272px`)** — the desktop drawer's width: a dimension, so it has
+  no theme variant, and a slot an app may override on its own `:root`, because
+  the drawer's width, the margin it slides out by, and the resting position of
+  its edge tab all derive from it. Mirrored in `tokens/tokens.json` and added to
+  the parity-exempt set in `tools/check-tokens.mjs`, which cross-checks that
+  exemption against the JSON in both directions.
+- **`demo/`** — `#sec-drawer` exercises the whole component: live controls inside
+  the drawer, both handles, the contained scrim, and a status line reporting
+  which of the two surfaces the current viewport is getting and where Escape
+  goes. `initDrawer` is wired **before** `initDetailCard` there, because
+  registration order on `document` *is* the Escape order. The map section gained
+  a **Dock right** toggle for `.sfsa-card.dock-right`.
+
+### Fixed
+
+- **`ui/card.js`** — the open-focus is now
+  `card.focus({ preventScroll: true })`. The `dock-right` variant enters under a
+  `translateX` animation, so at focus time the card can still overhang its
+  scroll ancestors; the default focus-scroll-into-view then dragged an
+  `overflow: hidden` map row sideways, and the shift outlived the animation.
+  Caught by `lfp-explorer`'s verify harness. Not a contract change — the card is
+  always fully in view once settled, so this focus never needed to scroll
+  anything.
+
+### Notes
+
+- **The admission rule (AGENTS.md §5) is satisfied on arrival.**
+  `lfp-explorer` is live on the drawer — it is the consumer that proved it, and
+  the `preventScroll` fix above is a defect its verification found — and
+  `fsa-lfp-eligibility-web` is already named in [CONSUMERS.md](CONSUMERS.md) as
+  needing its controls relocated into a drawer, since its dependent control
+  groups (pasture type, then the weeks and thresholds that follow from it) do not
+  fit a navbar. Two properties, one of them already shipping on it — the drawer
+  did not enter the kit as one app's code.
+- The pattern itself — desktop fixture vs compact overlay, the contained scrim
+  against the page-level one, the Escape layering, and the `onToggle` resize
+  seam — is codified in [HOUSE-STYLE.md](HOUSE-STYLE.md) §3.
+
 ## [0.1.0] — 2026-08-18
 
 First release. Built alongside `fsa-normal-grazing-period`, which is the pilot

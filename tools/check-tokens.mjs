@@ -16,9 +16,10 @@
         block and not the other silently inherits the other theme's value,
         which is exactly the failure this kit's AGENTS.md §4 exists to prevent.
         The theme CSS documents a parity-EXEMPT set (the theme-independent
-        tokens: type, radii, transition, --sheet-h). That list is honored here,
-        and it is cross-checked against tokens.json's `themeIndependent` block
-        in both directions, so the exemption cannot drift either.
+        tokens: type, radii, transition, --sheet-h, --drawer-w). That list is
+        honored here, and it is cross-checked against tokens.json's
+        `themeIndependent` block in both directions, so the exemption cannot
+        drift either.
      2. JSON SYNC — tokens/tokens.json mirrors the CSS exactly: every token in
         both directions, values byte-equal after trimming. Keys in the JSON are
         the custom-property names with the leading '--' stripped.
@@ -57,7 +58,7 @@ const coreJs = readFileSync(join(root, 'core/core.js'), 'utf8');
 const EXEMPT = [
   '--font-ui', '--font-mono', '--heading-weight',
   '--radius-sm', '--radius-md', '--radius-lg',
-  '--transition', '--sheet-h',
+  '--transition', '--sheet-h', '--drawer-w',
 ];
 
 /* Themed tokens every consumer and kit module depends on. A rename that

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Kit Demo · Sustainable FSA</title>
-  <meta name="description" content="Living component gallery for the Sustainable FSA house-style kit: navbar, panels, toast, tooltip, detail card, legends, county search, help modal, and the live FSA county composite.">
+  <meta name="description" content="Living component gallery for the Sustainable FSA house-style kit: navbar, panels, control drawer, toast, tooltip, detail card, legends, county search, help modal, and the live FSA county composite.">
   <meta name="author" content="Sustainable FSA">
   <meta name="theme-color" content="#B7410E">
   <link rel="icon" href="../assets/favicon.ico" sizes="any">
@@ -104,7 +104,32 @@
     /* .sfsa-panel and .sfsa-card ship without inset properties on purpose —
        the kit does not know which corner is free. This is the app's half. */
     #demo-panel { top: 0.75rem; left: 0.75rem; }
-    #county-card { right: 0.75rem; bottom: 0.75rem; max-height: calc(100% - 1.5rem); }
+    /* The card's floating geometry is scoped two ways on purpose. An ID-scoped
+       inset out-specifies BOTH of the theme's own card overrides — the compact
+       bottom sheet and .sfsa-card.dock-right are class rules — so an app that
+       wants either of them has to keep its corner insets out of their way: the
+       media query is the theme's not-compact complement (same two numbers, same
+       lockstep), and :not(.dock-right) yields to the dock while it is on. */
+    @media (min-width: 641px) and (min-height: 561px) {
+      #county-card:not(.dock-right) {
+        right: 0.75rem; bottom: 0.75rem; max-height: calc(100% - 1.5rem);
+      }
+    }
+
+    /* The drawer's row is the APP's half of that component: a positioned flex
+       row that clips the off-canvas slide. In an app this is <main>, with the
+       map in the pane beside the drawer. */
+    .demo-drawer-stage {
+      position: relative; display: flex; align-items: stretch;
+      height: 360px; overflow: hidden;
+      background: var(--bg-deep);
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+    }
+    .demo-drawer-pane {
+      flex: 1 1 auto; min-width: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem 1.25rem; text-align: center;
+    }
 
     /* The shipped .sfsa-tooltip is position:fixed and starts transparent
        because it follows a pointer. This specimen sits in the flow instead so
@@ -313,17 +338,99 @@
         </div>
       </div>
     </div>
-    <p>The kit's other page-level surface is <code>.sfsa-scrim</code> — the dimming layer an
-       app puts behind an off-canvas drawer on a compact viewport. It sits one tier below the
-       drawer and, like every floating surface here, takes its number from the one z-index
-       ladder rather than inventing one. Raise it and the detail card stays above it, because
-       <code>--z-detail</code> outranks <code>--z-map-panel</code>.</p>
+    <p>The kit's other page-level surface is <code>.sfsa-scrim</code> — the
+       <strong>viewport-fixed</strong> dimming layer, at <code>--z-map-panel</code>, for
+       anything that has to dim the whole window. It is <em>not</em> the drawer's scrim: the
+       drawer below ships its own (<code>.sfsa-drawer-scrim</code>, at
+       <code>--z-drawer-scrim</code>), absolute inside the map row, so it dims the map and an
+       open bottom sheet and leaves the navbar live. Both take their number from the one z-index
+       ladder rather than inventing one. Raise this one and the detail card stays above it,
+       because <code>--z-detail</code> outranks <code>--z-map-panel</code>.</p>
     <div class="demo-row">
       <button type="button" class="nav-btn" id="btn-scrim"><span class="btn-label">Raise the scrim</span></button>
     </div>
   </section>
 
   <!-- ══ 3 ══ -->
+  <section class="demo-section" id="sec-drawer">
+    <h2>Control drawer</h2>
+    <p>The drawer (<code>ui/drawer.js</code>) is two surfaces in one module. On a desktop
+       viewport it is a <strong>real column</strong> of the row it sits in — closing it hands its
+       width to the map, which is the one camera change the reader actually asked for. Below
+       640px (or on a short landscape window) the same element becomes an <strong>off-canvas
+       overlay</strong> with its own scrim: a 272px fixture on a phone would leave no map to
+       control. The edge tab is the desktop handle and <strong>must be the drawer's next
+       sibling</strong> — the theme selects both its closed position and its chevron direction
+       through <code>.sfsa-drawer.is-closed + .sfsa-drawer-tab</code>, and CSS has no
+       previous-sibling selector to fall back on. The hamburger beside it is the compact handle
+       (an app puts that one in <code>.nav-meta</code>); the theme hides whichever of the two
+       does not belong at the current width.</p>
+    <p>Both handles carry <code>aria-expanded</code> and a swapped <code>aria-label</code>,
+       written in the same call that flips <code>.is-closed</code>, so the accessible state
+       cannot drift from the geometry. A closed drawer leaves the tab order with no JS at all,
+       because the theme transitions <code>visibility</code> alongside the slide — and the module
+       moves focus out first, since the browser would otherwise blur it to <code>&lt;body&gt;</code>
+       and lose the reader's place. Escape closes the drawer <strong>only</strong> on compact,
+       where it is a layer over the map; the desktop fixture is part of the page and lets the key
+       fall through to the card. The width is <code>--drawer-w</code>, and the desktop open/closed
+       state persists under an app-prefixed key — compact always starts closed and never writes
+       that preference.</p>
+    <div class="demo-row">
+      <!-- Compact-only by CSS (.sfsa-drawer-toggle), so above 640px this button
+           is not rendered at all — narrow the window to see it. -->
+      <button type="button" class="nav-btn icon-only sfsa-drawer-toggle" id="btn-drawer"
+              aria-expanded="true" aria-controls="demo-drawer" aria-label="Hide controls">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/>
+          <line x1="4" y1="17" x2="20" y2="17"/>
+        </svg>
+      </button>
+      <button type="button" class="nav-btn" id="btn-drawer-toggle">
+        <span class="btn-label">Toggle the drawer</span>
+      </button>
+    </div>
+    <div class="demo-drawer-stage">
+      <aside class="sfsa-drawer" id="demo-drawer" aria-label="Demo map controls">
+        <div class="sfsa-drawer-scroll">
+          <section class="sfsa-drawer-section">
+            <h3 class="sfsa-drawer-title">Time</h3>
+            <div class="sfsa-range">
+              <label class="control-label" for="demo-drawer-year">Program year</label>
+              <input type="range" id="demo-drawer-year" min="2010" max="2026" step="1" value="2023">
+              <output id="demo-drawer-year-out" for="demo-drawer-year">2023</output>
+            </div>
+          </section>
+          <section class="sfsa-drawer-section">
+            <h3 class="sfsa-drawer-title">Color by</h3>
+            <div class="seg-btns" role="group" aria-label="Color by">
+              <button type="button" class="nav-btn seg-btn" data-drawer-var="length" aria-pressed="true">Length</button>
+              <button type="button" class="nav-btn seg-btn" data-drawer-var="start" aria-pressed="false">Start</button>
+              <button type="button" class="nav-btn seg-btn" data-drawer-var="end" aria-pressed="false">End</button>
+            </div>
+          </section>
+        </div>
+      </aside>
+      <!-- NEXT SIBLING of the drawer — the sibling contract above. -->
+      <button type="button" class="sfsa-drawer-tab" id="demo-drawer-tab"
+              aria-expanded="true" aria-controls="demo-drawer" aria-label="Hide controls">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m15 6-6 6 6 6"/>
+        </svg>
+      </button>
+      <div class="sfsa-drawer-scrim" id="demo-drawer-scrim" hidden aria-hidden="true"></div>
+      <div class="demo-drawer-pane">
+        <p class="demo-note" id="drawer-pane-note">The map pane. In an app this is
+           <code>#map-frame</code> — <code>flex: 1 1 auto; min-width: 0</code> — and the
+           <code>onToggle</code> seam is where <code>map.resize()</code> goes, 240ms after the
+           slide (immediately under reduced motion).</p>
+      </div>
+    </div>
+    <p class="demo-note" id="drawer-status" role="status"></p>
+  </section>
+
+  <!-- ══ 4 ══ -->
   <section class="demo-section" id="sec-toast">
     <h2>Toast</h2>
     <p>Transient status, 2800 ms by default, one per page, announced politely through
@@ -337,7 +444,7 @@
     </div>
   </section>
 
-  <!-- ══ 4 ══ -->
+  <!-- ══ 5 ══ -->
   <section class="demo-section" id="sec-tooltip">
     <h2>Tooltip</h2>
     <p>The pointer-following <code>.sfsa-tooltip</code>, at rest. It is
@@ -352,7 +459,7 @@
     </div>
   </section>
 
-  <!-- ══ 5 ══ -->
+  <!-- ══ 6 ══ -->
   <section class="demo-section" id="sec-card">
     <h2>Detail card</h2>
     <p>The docked detail surface (<code>ui/card.js</code>): <code>role="dialog"</code> with
@@ -370,7 +477,7 @@
     </div>
   </section>
 
-  <!-- ══ 6 ══ -->
+  <!-- ══ 7 ══ -->
   <section class="demo-section" id="sec-legends">
     <h2>Legends</h2>
     <p>Both legend forms from <code>ui/legend.js</code>. Colour is never the sole channel: the
@@ -384,7 +491,7 @@
     </div>
   </section>
 
-  <!-- ══ 7 ══ -->
+  <!-- ══ 8 ══ -->
   <section class="demo-section" id="sec-search">
     <h2>Search combobox</h2>
     <p>The ARIA 1.2 combobox in the navbar (<code>ui/search.js</code>) is the
@@ -399,7 +506,7 @@
     <p class="demo-note" id="search-result">Nothing picked yet.</p>
   </section>
 
-  <!-- ══ 8 ══ -->
+  <!-- ══ 9 ══ -->
   <section class="demo-section" id="sec-modal">
     <h2>Modal</h2>
     <p>A native <code>&lt;dialog class="sfsa-modal"&gt;</code> filled by
@@ -413,7 +520,7 @@
     </div>
   </section>
 
-  <!-- ══ 9 ══ -->
+  <!-- ══ 10 ══ -->
   <section class="demo-section" id="sec-map">
     <h2>Live county map</h2>
     <p>The whole map stack: <code>createCompositeMap</code> on a cream canvas with no basemap,
@@ -423,17 +530,30 @@
        vintage; the pointer tooltip; and the detail card on click. County ids are
        <strong>5-character FSA strings</strong> end to end — never FIPS, never parsed to a
        number. Export writes a branded PNG through <code>ui/export.js</code>.</p>
+    <p><strong>Dock right</strong> adds <code>.dock-right</code> to the same card. That variant is
+       CSS-only — <code>ui/card.js</code> knows nothing about it: the card stops floating in the
+       corner and becomes a full-height column against the right edge of the map, opaque rather
+       than glass, sliding in from the edge each time the module unhides it (an enter-only
+       keyframe re-runs on every <code>display</code> flip, so no JS had to change). Under compact
+       the variant does not apply at all and the card is still the bottom sheet.</p>
     <div class="demo-row">
       <button type="button" class="nav-btn" id="btn-export">
         <span class="btn-label">Export PNG</span>
       </button>
       <button type="button" class="nav-btn" id="btn-clear"><span class="btn-label">Clear selection</span></button>
+      <!-- aria-pressed IS the styling source of truth for this toggle; the class
+           on the card is what the theme keys off. -->
+      <button type="button" class="nav-btn" id="btn-dock" aria-pressed="false">
+        <span class="btn-label">Dock right</span>
+      </button>
     </div>
     <div id="map-wrap">
       <div id="map" role="application" aria-label="FSA county composite of the United States"></div>
 
-      <!-- The detail surface. Positioned by this page (bottom-right of the map);
-           §6 of the theme docks it as a bottom sheet under compact. -->
+      <!-- The detail surface. Positioned by this page (bottom-right of the map)
+           at desktop widths only; §6 of the theme docks it as a bottom sheet
+           under compact, and .dock-right (the button above) hands the desktop
+           geometry to the theme as well. -->
       <div class="sfsa-card" id="county-card" aria-labelledby="county-card-title" hidden>
         <div class="sfsa-card-head">
           <h3 class="sfsa-card-title" id="county-card-title">County</h3>

@@ -169,7 +169,11 @@ brand-gradient underline via `::after`. Order: **banner lockup** (`.logo-link`)
 **Panels** (`.sfsa-panel`) are floating surfaces over the map (legend, filters):
 head + collapsible body, wired with `initCollapsible`. **`.sfsa-card`** is the
 detail surface for a selected county, and on compact it becomes a bottom sheet
-(see below).
+(see below). A card carrying a long readout may opt into
+**`.sfsa-card.dock-right`**, which docks it full-height against the right edge of
+the map at desktop widths instead of floating in a corner — a column beats a
+70dvh box that scrolls inside a box. It is CSS-only, and compact still gets the
+sheet.
 
 **Z-index ladder**: add to a tier, never invent a number. The tiers are
 documented in the CSS. MapLibre's own controls are z-index 2; map popups ship
@@ -219,7 +223,8 @@ developer's laptop. Compact drives JS decisions: bottom sheet instead of
 anchored popup, panel auto-collapse, control relocation into a drawer.
 
 **Mobile patterns:**
-- Off-canvas drawer + `.sfsa-scrim`, panel at `--z-drawer`.
+- Controls relocate into the off-canvas drawer at `--z-drawer`, over its own
+  contained scrim — § Control drawer below.
 - Full-viewport apps use **`100dvh`** (never `100vh`) and `overflow: hidden` on
   body. `100vh` on iOS Safari is the URL-bar-hidden height, so the bottom of the
   map — where the controls and the sheet live — sits under the browser chrome.
@@ -238,6 +243,56 @@ anchored popup, panel auto-collapse, control relocation into a drawer.
 property, never `gap` directly: the lockup divider's margin is derived from it,
 so setting `gap` alone desynchronises them and squeezes banner, divider, and
 title together.
+
+### Control drawer
+
+More controls than a navbar holds go in `.sfsa-drawer` + `initDrawer`
+(`ui/drawer.js`), which is **two surfaces in one element**. The edge tab is the
+desktop handle and **must be the drawer's next sibling** (the theme selects both
+its closed position and its chevron direction through
+`.sfsa-drawer.is-closed + .sfsa-drawer-tab`, and CSS has no previous-sibling
+selector); the navbar hamburger is the compact one, and each is hidden at the
+width where it does not belong. Both carry `aria-expanded` and a swapped
+`aria-label`, written in the same call that flips `.is-closed` — the disclosure
+sibling of the §5.7 idiom.
+
+- **Desktop is a fixture, not a float.** The drawer is a real column of the app's
+  map row at `--drawer-w`, so closing it *hands its width to the map* instead of
+  uncovering it — a floating panel would cover the very map it filters. That
+  changes the map container's width, so **the app calls `map.resize()`**; the kit
+  will not, because it does not know the app has a map. `onToggle` is the seam:
+  resize **~240ms after the slide** (the theme animates `margin-left` over
+  `--transition`, and a resize measured mid-slide reads a width the container is
+  about to leave — that is how you get a letterboxed canvas), and
+  **immediately under reduced motion**, where the CSS blanket has already clamped
+  the transition and the wait would be a visible stall. Read the gate at call
+  time (§5.3).
+- **Compact is an overlay, over a contained scrim.** Below the compact query the
+  same element slides over the map at `--z-drawer` and raises
+  **`.sfsa-drawer-scrim`**: `position: absolute` **inside the app's positioned
+  map row**, at **`--z-drawer-scrim` (65)**. That tier dims the map and an open
+  bottom sheet (`--z-detail`, 60), stays under the drawer that raised it (70),
+  and leaves the navbar live — a control drawer is not a modal, and the theme and
+  help buttons are up there. Do not reach for `.sfsa-scrim` here: that one is
+  **viewport-fixed** at `--z-map-panel` and dims the chrome with everything else,
+  for surfaces whose scope really is the whole window. Compact starts closed,
+  never persists its state, and is force-closed on the way in, so a phone visit
+  cannot rewrite the desktop preference.
+- **Escape is a compact-only layer.** An open compact drawer closes on Escape and
+  marks the key consumed; the desktop fixture lets it fall through to whatever is
+  stacked over the map, because Escape does not un-arrange a page the reader
+  arranged. Every handler in that contract lives on `document` and listeners on
+  one node fire in **registration order**, so **wire `initDrawer` before
+  `initDetailCard`** — the drawer sits a tier above the detail surface, and the
+  other order lets one Escape close the card underneath an open drawer.
+- **A closed drawer leaves the tab order, with no JS.** The theme transitions
+  `visibility` alongside the slide, **in the closing direction only**:
+  `visibility` interpolates discretely, so it holds `visible` for the whole slide
+  and the drawer leaves the accessibility tree exactly when it leaves the screen —
+  no `[hidden]` bookkeeping, and no keyboard user tabbing through a control set
+  they cannot see. The asymmetry is deliberate: transitioned both ways, the drawer
+  computes as `hidden` for one frame after opening, which silently drops the
+  `focus()` that puts a compact reader inside it. Don't tidy it out.
 
 ---
 

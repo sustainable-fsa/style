@@ -1,5 +1,5 @@
 /* ============================================================================
-   sustainable-fsa/style · theme/sfsa-theme.css · v0.1.0
+   sustainable-fsa/style · theme/sfsa-theme.css · v0.2.0
    The Sustainable FSA shared web house style.
 
    Source architecture: mt-climate-office/mco-web-style (MIT) — theme/mco-theme.css.
@@ -18,7 +18,7 @@
      3. Reset & accessibility utilities
      4. MapLibre control polish
      5. Component shells    — navbar, buttons, range, toast, tooltip, modal,
-                              panel, card/sheet, combobox, scrim
+                              panel, card/sheet, combobox, drawer, scrim
      6. Responsive & touch
 
    TWO themes, not MCO's three. Sustainable FSA is a light-first brand: there is
@@ -100,6 +100,14 @@
      live value on :root while a sheet is open so bottom-corner UI lifts above
      it; the 0px default keeps every calc() inert until then. */
   --sheet-h:        0px;
+  /* Width of the desktop control drawer (.sfsa-drawer). A dimension, so it has
+     no theme variant — and it is a slot an app may override on its own :root,
+     because the drawer's width, the margin it slides out by, and the resting
+     position of its edge tab are ALL derived from this one value. 272px holds a
+     .sfsa-range with its output, a three-up .seg-btns group and a combobox
+     without wrapping, and still leaves the map the larger share of a 1024px
+     window. */
+  --drawer-w:       272px;
 
   /* ---- Themed tokens. EVERY token below must also exist in the
      [data-theme="high-contrast"] block. ---- */
@@ -206,13 +214,21 @@
    (notably map popups, which ship with NO z-index) has to be above that.
    The detail tier stays BELOW the chrome so a docked detail surface can never
    cover the navbar; <dialog> lives in the browser's top layer and outranks
-   all of these regardless. */
+   all of these regardless.
+
+   TWO SCRIMS, TWO TIERS, on purpose. `.sfsa-scrim` is viewport-fixed and rides
+   at --z-map-panel (40) with the docked panels: it dims the whole window.
+   --z-drawer-scrim (65) is for `.sfsa-drawer-scrim`, which is absolute inside
+   the app's positioned map row — high enough to dim an open detail surface
+   (60), low enough to stay under the drawer that raised it (70), and it never
+   reaches the navbar above it. NEW in this kit; mco-theme.css has one scrim. */
 :root {
   --z-map-ctrl:      2;   /* vendor .maplibregl-ctrl-* containers          */
   --z-map-notice:   20;   /* empty-state / error callouts over the map     */
   --z-map-progress: 30;   /* loading bars and notes                        */
   --z-map-panel:    40;   /* docked panels (legend, sidebar) + scrim       */
   --z-detail:       60;   /* docked detail surface (.sfsa-card / sheet)    */
+  --z-drawer-scrim: 65;   /* scrim under a drawer, over the sheet          */
   --z-drawer:       70;   /* off-canvas drawer, over the detail surface    */
   --z-chrome:       90;   /* secondary chrome bars                         */
   --z-chrome-top:  100;   /* navbar                                        */
@@ -894,8 +910,162 @@ input[type="range"][disabled] { cursor: not-allowed; opacity: 0.45; }
   .sfsa-navbar .sfsa-search-collapse.is-open kbd { display: none; }
 }
 
-/* Scrim behind off-canvas drawers on compact viewports. Pair with a panel at
-   --z-drawer; the scrim sits one tier below it. */
+/* Control drawer ─────────────────────────────────────────────────────────────
+   Two surfaces, one element. On desktop the drawer is a REAL COLUMN of the
+   app's map row: closing it hands its width to the map, which is the one camera
+   change the reader actually asked for (a floating panel would cover the map it
+   is filtering). Under compact (§6) the same element becomes an off-canvas
+   overlay over the map with a scrim behind it, because a 272px fixture on a
+   phone leaves no map at all.
+
+   Behavior is ui/drawer.js; `.is-closed` is the single state class, and that
+   module syncs aria-expanded and aria-label on the toggles in the same breath it
+   flips the class, so the accessible state cannot drift from the geometry.
+
+   Structure. The tab is the drawer's NEXT SIBLING, and the scrim and the map
+   pane are siblings too — all inside one positioned flex row that the APP owns
+   (the kit does not know how many panes that row has):
+
+     <main>                            <!-- display:flex; position:relative -->
+       <aside id="drawer" class="sfsa-drawer" aria-label="Map controls">
+         <div class="sfsa-drawer-scroll">
+           <section class="sfsa-drawer-section">
+             <h2 class="sfsa-drawer-title">Program year</h2>
+             …
+       <button id="drawer-tab" class="sfsa-drawer-tab" aria-expanded="true"
+               aria-controls="drawer" aria-label="Hide controls"> … </button>
+       <div id="drawer-scrim" class="sfsa-drawer-scrim" hidden aria-hidden="true"></div>
+       <div id="map-frame">              <!-- flex: 1 1 auto; min-width: 0 -->
+
+   NEW in this kit. mco-theme.css ships no drawer; the pattern is ported from
+   mt-climate-office/mesonet-explorer, which hand-rolls it per app — see
+   ui/drawer.js § Attribution for the deltas. */
+.sfsa-drawer {
+  flex: 0 0 var(--drawer-w);
+  width: var(--drawer-w);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  padding-left: env(safe-area-inset-left);
+  transition: margin-left var(--transition);
+}
+/* Closed: slide the column out of the row so the map claims the space — and
+   take the drawer out of the TAB ORDER with it. `visibility` is animatable but
+   interpolates DISCRETELY, holding `visible` for the whole transition, so the
+   drawer stays on screen while it slides and only leaves the accessibility tree
+   once it is gone: no JS, no [hidden] bookkeeping, and no keyboard user tabbing
+   through a control set they cannot see (the defect this fixes in the ported
+   original). ui/drawer.js moves focus out BEFORE that lands.
+
+   THE VISIBILITY TRANSITION IS DECLARED ONLY HERE, on the closed state, and
+   that asymmetry is the whole trick: transition-property is read from the
+   AFTER-change style, so CLOSING (adding .is-closed) delays the hide until the
+   slide is over, while OPENING (removing it) has no visibility transition at
+   all and the drawer is visible — and focusable — in the very style pass that
+   ui/drawer.js's focus() call forces. Transition it in both directions and the
+   drawer computes as `hidden` for one more frame after opening, which silently
+   drops that focus() and strands a compact reader's cursor under the scrim. */
+.sfsa-drawer.is-closed {
+  margin-left: calc(-1 * var(--drawer-w));
+  visibility: hidden;
+  transition: margin-left var(--transition), visibility var(--transition);
+}
+/* The scrolling body. min-height:0 is what lets a flex child actually scroll
+   instead of growing, and overscroll-behavior stops the page rubber-banding
+   when the list hits its end. Every drawer holds real controls, so this
+   scrollable region always has a keyboard route into it (axe:
+   scrollable-region-focusable) — an empty drawer would not. */
+.sfsa-drawer-scroll {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 10px 12px 16px;
+}
+.sfsa-drawer-section { padding: 8px 0; border-bottom: 1px solid var(--border-glass); }
+.sfsa-drawer-section:last-child { border-bottom: 0; }
+/* Section eyebrow, the same grade as .sfsa-panel-title (--ochre-dark, 4.91:1 on
+   cream / 5.25:1 on white): a drawer usually replaces a stack of floating
+   panels, and its headings have to read as the same rank they did. */
+.sfsa-drawer-title {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ochre-dark);
+  margin: 0 0 0.4rem;
+}
+/* Kit controls were drawn for a horizontal navbar; in a 272px column they go
+   full width. The label takes a row of its own and the slider shares the next
+   one with its output — and `min-width: 0` is load-bearing, because
+   input[type=range] ships a 7rem minimum that would otherwise push the output
+   out of the column. */
+.sfsa-drawer .sfsa-range { flex-wrap: wrap; width: 100%; }
+.sfsa-drawer .sfsa-range > .control-label { flex: 1 1 100%; }
+.sfsa-drawer .sfsa-range > input[type="range"] { flex: 1 1 0; min-width: 0; }
+.sfsa-drawer input[type="range"] { width: 100%; }
+.sfsa-drawer .seg-btns { width: 100%; }
+.sfsa-drawer .seg-btn { flex: 1; justify-content: center; }
+.sfsa-drawer .sfsa-combobox { width: 100%; }
+.sfsa-drawer .sfsa-combobox input[type="search"],
+.sfsa-drawer .sfsa-combobox input[type="search"]:focus,
+.sfsa-drawer .sfsa-combobox input[type="text"] { flex: 1 1 0; width: 100%; min-width: 0; }
+
+/* The edge tab: the desktop collapse handle, vertically centred so it never
+   shares a corner with the map's own controls. 18px wide because it is chrome
+   on the map's edge rather than a button in a bar (24px under hover:none, §6).
+
+   SIBLING CONTRACT — the tab MUST be the drawer's next sibling in the DOM. Both
+   its resting position and its chevron direction are selected through
+   `.sfsa-drawer.is-closed + .sfsa-drawer-tab`, and CSS has no parent or
+   previous-sibling selector to fall back on: wrapping either element in a div
+   silently breaks both halves of the affordance. */
+.sfsa-drawer-tab {
+  position: absolute; z-index: var(--z-map-panel);
+  top: 50%; margin-top: -22px;
+  left: var(--drawer-w);
+  width: 18px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  background: var(--bg-surface); color: var(--text-secondary);
+  /* --ctrl-border, not the decorative --border hairline: this is an interactive
+     edge and owes 3:1 (WCAG 1.4.11). No left border — the tab reads as an
+     extension of the drawer's own edge, and as the map's when closed. */
+  border: 1px solid var(--ctrl-border); border-left: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  cursor: pointer; font-family: inherit;
+  box-shadow: var(--shadow);
+  transition: left var(--transition), background var(--transition), color var(--transition);
+}
+.sfsa-drawer-tab:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-line);
+  color: var(--text-primary);
+}
+/* The chevron shows the ACTION, not the state — same idiom as
+   .sfsa-panel-toggle. The markup glyph points LEFT ("collapse"); closed, it
+   rotates to point right ("expand"). */
+.sfsa-drawer-tab svg { width: 12px; height: 12px; transition: transform var(--transition); }
+.sfsa-drawer.is-closed + .sfsa-drawer-tab { left: 0; }
+.sfsa-drawer.is-closed + .sfsa-drawer-tab svg { transform: rotate(180deg); }
+
+/* The navbar hamburger. Compact-only, exactly like .sfsa-search-toggle: §6
+   shows it, and on desktop the edge tab is the handle instead. */
+.sfsa-drawer-toggle { display: none; }
+
+/* The drawer's own scrim. Deliberately NOT .sfsa-scrim: that one is
+   viewport-fixed and would dim the navbar as well. This one is ABSOLUTE inside
+   the app's positioned map row, so an open drawer dims the map — and an open
+   bottom sheet at --z-detail — while the chrome above it stays live. That is
+   the right call for a drawer: the theme toggle and the help button are up
+   there, and a control drawer is not a modal. Display comes on in §6; the kit's
+   [hidden] rule still outranks it, so `scrim.hidden = true` works. */
+.sfsa-drawer-scrim {
+  display: none;
+  position: absolute; inset: 0;
+  z-index: var(--z-drawer-scrim);
+  background: var(--scrim);
+}
+
+/* The page-level scrim: viewport-fixed, at the panel tier. For anything that
+   has to dim the whole window (a full-screen overlay bar, an app's own
+   off-canvas surface). A drawer built from .sfsa-drawer uses
+   .sfsa-drawer-scrim above instead — it dims the map, not the chrome. */
 .sfsa-scrim {
   position: fixed; inset: 0;
   background: var(--scrim);
@@ -1000,6 +1170,80 @@ input[type="range"][disabled] { cursor: not-allowed; opacity: 0.45; }
     border-left: none; border-right: none; border-bottom: none;
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* The drawer stops being a column of the row and becomes an off-canvas
+     overlay OVER the map: a 272px fixture on a phone would leave no map to
+     control. It slides on `transform` here rather than `margin-left`, because
+     there is no longer a column to hand back — but it keeps the base rule's
+     `visibility` transition, so a closed drawer is still out of the tab order.
+
+     ui/drawer.js force-closes the drawer on the way into compact and does NOT
+     persist that: an overlay inherited from a desktop "open" preference would
+     cover the map with a panel nobody asked for, and a phone visit must not
+     rewrite the desktop preference. */
+  .sfsa-drawer {
+    position: absolute; z-index: var(--z-drawer);
+    top: 0; bottom: 0; left: 0;
+    flex: none;
+    width: min(300px, 86vw);
+    margin-left: 0;
+    box-shadow: var(--shadow);
+    transform: translateX(0);
+    transition: transform var(--transition);
+  }
+  /* Same one-directional visibility contract as the desktop rule above — the
+     hide waits for the slide, the show does not wait for anything. */
+  .sfsa-drawer.is-closed {
+    transform: translateX(-100%);
+    margin-left: 0;
+    transition: transform var(--transition), visibility var(--transition);
+  }
+  /* The edge tab would be a second, redundant control beside the hamburger —
+     and there is no column edge left for it to hang on. */
+  .sfsa-drawer-tab { display: none; }
+  .sfsa-drawer-toggle { display: flex; }
+  .sfsa-drawer-scrim { display: block; }
+}
+
+/* NOT-COMPACT — the complement of the block above, and the ONE place in this
+   file where those two numbers are authored a second time. 641 = 640 + 1 and
+   561 = 560 + 1, so KEEP THEM IN LOCKSTEP with the compact block: a
+   comma-separated media list has no single-query negation (`not all and
+   (max-width: 640px), (max-height: 560px)` negates only the first arm), which
+   is why the numbers are repeated rather than inverted. This is deliberately a
+   DIFFERENT string from the compact query, so it does not disturb the
+   occurrence count tools/check-tokens.mjs makes of that one.
+
+   `.sfsa-card.dock-right` docks the detail surface against the right edge of the
+   map at full height instead of floating in a corner — the right call for an app
+   whose card carries a long readout, where a 70dvh box that scrolls inside a box
+   is worse than a column. Opt in per app (`class="sfsa-card dock-right"`); the
+   plain floating card is untouched, and under compact this variant simply does
+   not apply, so the bottom sheet above is still what a phone gets. */
+@media (min-width: 641px) and (min-height: 561px) {
+  .sfsa-card.dock-right {
+    top: 0; right: 0; bottom: 0; left: auto;
+    width: min(360px, 34vw);
+    max-height: none;
+    border-radius: 0;
+    /* Opaque --bg-surface, not --glass: a full-height dock is a page region
+       carrying a table of numbers, and a blur cannot guarantee a ratio for
+       text over whatever the map happens to show. */
+    border: 0; border-left: 1px solid var(--border);
+    background: var(--bg-surface);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: var(--shadow);
+    /* ENTER-ONLY slide, on purpose: an animation re-runs whenever an element
+       goes from display:none to displayed, which is exactly what ui/card.js
+       does when it flips [hidden] off. So the dock slides in on every open with
+       ZERO changes to that module, and nothing has to animate on the way out.
+       The reduced-motion blanket in §3 clamps it. */
+    animation: sfsa-dock-in var(--transition);
+  }
+}
+@keyframes sfsa-dock-in {
+  from { transform: translateX(100%); }
+  to   { transform: none; }
 }
 
 /* WCAG 2.5.5 — comfortable touch targets on touch-only devices. */
@@ -1012,6 +1256,10 @@ input[type="range"][disabled] { cursor: not-allowed; opacity: 0.45; }
   /* Dismiss controls get the AAA 44px target. */
   .modal-close, .card-close { min-width: 44px; min-height: 44px; }
   .sfsa-panel-toggle { width: 36px; height: 36px; }
+  /* The edge tab is already 44px tall; widen it toward the 2.5.5 target. It only
+     shows on non-compact viewports, which a touch device can still be (a
+     tablet), so this is not dead weight. */
+  .sfsa-drawer-tab { width: 24px; }
   .sfsa-combobox input[type="search"],
   .sfsa-combobox input[type="text"] { min-height: 40px; }
   .sfsa-combobox [role="option"] { min-height: 44px; align-items: center; }

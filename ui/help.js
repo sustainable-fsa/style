@@ -1,5 +1,5 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · ui/help.js · v0.1.0
+   Sustainable FSA house-style kit · ui/help.js · v0.2.0
    The help / info modal: repo-authored markdown, rendered into the kit's
    native <dialog> shell, with the first-visit auto-open gate.
 
@@ -8,7 +8,7 @@
    shipped inside the release snapshot.
 
      import { initHelpModal }
-       from 'https://sustainable-fsa.com/style/v0.1.0/ui/help.js';
+       from 'https://sustainable-fsa.com/style/v0.2.0/ui/help.js';
 
      const help = initHelpModal({
        dialog:  document.getElementById('help-modal'),

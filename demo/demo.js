@@ -39,6 +39,7 @@ import {
   loadCounties, searchItems, vintageForYear,
 } from '../county/county.js';
 import { initDetailCard } from '../ui/card.js';
+import { initDrawer } from '../ui/drawer.js';
 import { colorbar, swatches } from '../ui/legend.js';
 import { initSearchBox } from '../ui/search.js';
 import { initHelpModal } from '../ui/help.js';
@@ -248,6 +249,70 @@ initCollapsible({
   autoCollapseOnCompact: true,
 });
 
+/* ── Control drawer ──────────────────────────────────────────────────────────
+   A column of the stage on desktop, an off-canvas overlay with a scrim under
+   compact. The stage's flex row, its height and its overflow clip are this
+   page's half of the component (see the <style> block); everything else is the
+   kit's.
+
+   REGISTRATION ORDER IS THE ESCAPE ORDER. initDrawer() is wired BEFORE
+   initDetailCard() below, deliberately: every handler in the Escape contract
+   lives on `document`, listeners on one node run in the order they were added,
+   and the compact drawer sits a tier above the detail surface. One Escape, one
+   layer, top down — see ui/drawer.js § REGISTRATION ORDER. */
+
+const drawerCtl = initDrawer({
+  drawer: $('demo-drawer'),
+  tab: $('demo-drawer-tab'),
+  toggle: $('btn-drawer'),
+  scrim: $('demo-drawer-scrim'),
+  /* No startOpen: the default IS open, so a fresh visit (and both axe
+     viewports) meets the drawer with its contents in the tab order — and the
+     app-prefixed key then remembers whatever this reader chose. Compact ignores
+     all of that and starts closed, which is why the hamburger and the scrim are
+     what the 390px audit sees. */
+  storageKey: STORE + 'drawer',
+  onToggle: (open) => {
+    // The seam where an app calls map.resize() 240ms after the slide (see the
+    // recipe in ui/drawer.js). This stage has no map, so the demo just reports
+    // the transition — and announces it, because on compact the change is a
+    // whole surface appearing over the pane.
+    renderDrawerStatus();
+    live.announce(open ? 'Controls shown.' : 'Controls hidden.');
+  },
+});
+
+function renderDrawerStatus() {
+  const compact = viewport.isCompact();
+  $('drawer-status').textContent =
+    `drawer: ${drawerCtl.isOpen() ? 'open' : 'closed'} · `
+    + `${compact ? 'off-canvas overlay + scrim (compact)' : 'column fixture (desktop)'} · `
+    + `Escape: ${compact ? 'closes the drawer' : 'falls through to the card'}`;
+}
+// A viewport flip that doesn't change open/closed still changes WHICH surface
+// this is, and onToggle only fires on a state change.
+viewport.onChange(renderDrawerStatus);
+renderDrawerStatus();
+
+$('btn-drawer-toggle').addEventListener('click', () => drawerCtl.toggle());
+
+/* The controls INSIDE the drawer are live — a gallery that ships a dead slider
+   is a gallery nobody believes. They drive nothing but their own readout: this
+   stage has no map, and the map below has its own controls in the navbar. What
+   they are here to show is the theme's full-width rules for kit controls in a
+   272px column, and that a closed drawer takes all of them out of the tab
+   order. */
+const drawerYear = $('demo-drawer-year');
+drawerYear.addEventListener('input', () => {
+  $('demo-drawer-year-out').textContent = drawerYear.value;
+});
+
+const drawerVarButtons = Array.from(document.querySelectorAll('[data-drawer-var]'));
+drawerVarButtons.forEach((b) => b.addEventListener('click', () => {
+  drawerVarButtons.forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+  live.announce('Color by: ' + b.textContent.trim());
+}));
+
 /* ── Detail card ─────────────────────────────────────────────────────────────
    One card, docked over the map, opened from three routes: the buttons in the
    gallery, a click on the canvas, and a search selection. */
@@ -294,10 +359,29 @@ $('btn-clear').addEventListener('click', () => {
   pushState();
 });
 
+/* The card's desktop dock. `.sfsa-card.dock-right` is CSS-ONLY: card.js is not
+   told, and its enter-only keyframe re-runs by itself every time that module
+   flips [hidden] off. aria-pressed is the styling source of truth for the
+   toggle (HOUSE-STYLE §5.7), so the accessible state cannot drift from the
+   look — the class on the card is what the theme reads. */
+const btnDock = $('btn-dock');
+btnDock.addEventListener('click', () => {
+  const docked = btnDock.getAttribute('aria-pressed') !== 'true';
+  btnDock.setAttribute('aria-pressed', String(docked));
+  $('county-card').classList.toggle('dock-right', docked);
+  live.announce(docked
+    ? 'County card docked to the right edge of the map.'
+    : 'County card floating in the map corner.');
+});
+
 /* ── Scrim ───────────────────────────────────────────────────────────────────
-   The dimming layer for an off-canvas drawer. The kit ships the surface, not
-   the drawer (no second property needs one yet — AGENTS.md §5), so the demo
-   raises it on its own to keep the class covered.
+   `.sfsa-scrim` is the VIEWPORT-FIXED dimming layer, at --z-map-panel: page
+   scope, for anything that has to dim the whole window including the chrome. It
+   is NOT the drawer's scrim — the drawer above ships its own
+   (`.sfsa-drawer-scrim` at --z-drawer-scrim, absolute inside the map row, so it
+   dims the map and an open sheet and leaves the navbar live), and ui/drawer.js
+   raises that one for you. No kit module raises this one, so the demo does it
+   by hand to keep the class covered.
 
    It is aria-hidden decoration: it dims the page, it says nothing, and it
    contains nothing focusable. Dismissal has TWO routes on purpose — a pointer

@@ -12,9 +12,9 @@ states, and the first one silently forks the tokens.
 ## Pick up here
 
 The kit is pre-1.0 and **`lfp-explorer` is the pilot** — it is being
-built against the kit as the kit is being written, which is deliberate: v0.1.0
-ships when the pilot runs on it, and nothing enters the kit that the pilot did
-not first prove.
+built against the kit as the kit is being written, which is deliberate: a
+version ships when the pilot runs on it, and nothing enters the kit that the
+pilot did not first prove.
 
 Two things are different about this fleet from the kit's architectural ancestor,
 and they set the shape of every migration below:
@@ -35,8 +35,8 @@ and they set the shape of every migration below:
 
 | Property | Status | Kit surface it needs |
 |---|---|---|
-| **lfp-explorer** | ✅ **Live on v0.1.0** ([app](https://sustainable-fsa.com/lfp-explorer/)) — the grazing-periods map, moved out of the fsa-normal-grazing-period archive as the seed of the Sustainable FSA Explorer | everything: theme, core, map, county, ui/* |
-| **fsa-lfp-eligibility-web** | Next | + categorical legend, dependent controls |
+| **lfp-explorer** | ✅ **Live on v0.2.0** ([app](https://sustainable-fsa.com/lfp-explorer/)) — the grazing-periods map, moved out of the fsa-normal-grazing-period archive as the seed of the Sustainable FSA Explorer; its controls now sit in the kit's control drawer (`ui/drawer.js`) | everything: theme, core, map, county, ui/* |
+| **fsa-lfp-eligibility-web** | Next | + categorical legend, dependent controls, control relocation into `.sfsa-drawer` |
 | **fsa-lfp-eligibility** | Next (with the above) | + categorical legend, dependent controls |
 | **fsa-lfp-eligibility-derived** | Likely, with its siblings | + a convention comparator |
 | **data-portal** | Partial adoption | tokens, navbar, toast, modal, URL state — **no map modules** |
@@ -58,7 +58,12 @@ generalized out of it.
   a second property wants either, they are kit candidates under the admission
   rule.
 - **Kit-owned as of the port:** the two-vintage geometry fetch and
-  `swapVintage`, the county card, search, PNG export, and the help modal.
+  `swapVintage`, the county card, search, PNG export, and the help modal — plus,
+  as of v0.2.0, the **control drawer** (`ui/drawer.js` + `.sfsa-drawer`), which
+  holds county search, year, pasture type, variable, and the legend, and
+  **`.sfsa-card.dock-right`** for the county readout. This app is the proving
+  consumer for both, and the `preventScroll` fix in `ui/card.js` is a defect its
+  verification found.
 - Its `qa-report.txt` names the county-years with no reported period — the app
   must distinguish those from counties with no polygon (HOUSE-STYLE §5.2, §7).
 
@@ -91,6 +96,12 @@ class names, HOUSE-STYLE §6), and the **dependent radio/select pattern** (choos
 pasture type, and the available weeks or drought thresholds change with it) with
 its URL-state and a11y contract written once in the kit rather than three times
 across the LFP apps.
+
+Those control groups do not fit a navbar, so this app **relocates its controls
+into the kit's control drawer** (`.sfsa-drawer` + `initDrawer`, HOUSE-STYLE §3),
+which already ships as of v0.2.0 — this app is the second call site that admitted
+it. The weekly time step also makes the detail readout long enough to want
+`.sfsa-card.dock-right`.
 
 ### fsa-lfp-eligibility — next, with its sibling
 
@@ -193,8 +204,11 @@ session starting fresh in the consumer's repo. Quick reference:
 | `#btn-info` | `.nav-btn.sfsa-btn-info` |
 | legend / panel shells | `.sfsa-panel` + `initCollapsible` |
 | county detail panel | `.sfsa-card` (bottom sheet on compact) |
+| full-height detail sidebar | `.sfsa-card.dock-right` (opt-in, desktop only) |
 | search field + dropdown | `.sfsa-combobox` (+ `.sfsa-search-collapse` / `.sfsa-search-toggle`) |
-| drawer scrim | `.sfsa-scrim` |
+| left control drawer / control sidebar | `.sfsa-drawer` + `initDrawer` |
+| drawer scrim | `.sfsa-drawer-scrim` (contained in the map row) |
+| whole-window dimming layer | `.sfsa-scrim` (viewport-fixed) |
 
 **Checklist per app:**
 
@@ -203,8 +217,9 @@ session starting fresh in the consumer's repo. Quick reference:
 2. Build the browser data payload; version it (`<app>/1`).
 3. Copy `snippets/head.html`; inline `snippets/anti-flash.html`; recompute its `sha256` from
    your own page; add `viewport-fit=cover`.
-4. Compose the page from kit components (navbar + banner lockup, panels, county
-   card, legend, help modal); keep app-specific layout CSS local and tokenized.
+4. Compose the page from kit components (navbar + banner lockup, panels, the
+   control drawer where the controls outgrow the navbar, county card, legend,
+   help modal); keep app-specific layout CSS local and tokenized.
 5. Wire state through the kit's URL-state helpers: year, type, county FSA id,
    variable, camera, theme.
 6. Apply the a11y quick-checks: skip link, `<main id="main" tabindex="-1">`,
