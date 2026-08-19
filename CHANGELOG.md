@@ -10,7 +10,7 @@ Releases are immutable directories: `vX.Y.Z/` is a byte-copy snapshot with a
 `MANIFEST.sha256`, re-verified by CI on every run. A bad release gets a new
 patch version, never an edit.
 
-## [Unreleased] — targeting 0.1.0
+## [0.1.0] — 2026-08-18
 
 First release. Built alongside `fsa-normal-grazing-period`, which is the pilot
 consumer and the reference implementation; nothing here entered the kit that the
