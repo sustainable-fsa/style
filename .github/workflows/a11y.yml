@@ -1,0 +1,46 @@
+# Axe accessibility audit of demo/ in both themes at two viewports.
+#
+# A serious/critical violation here is a HARD STOP, not a flake to re-run
+# (AGENTS.md §6). The demo exercises every shipped component, so this run is as
+# close as the kit gets to auditing itself — which is also why a component that
+# never reaches demo/ is a component this workflow has never seen.
+#
+# Tooling is installed ephemerally: playwright and axe are test dependencies of
+# the repository, never runtime dependencies of the kit, and package.json is
+# gitignored by design.
+name: a11y
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  axe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install audit tooling (ephemeral)
+        run: |
+          npm init -y > /dev/null
+          npm install --no-save playwright @axe-core/playwright
+          npx playwright install --with-deps chromium
+
+      # The audit serves the REPO ROOT (the demo loads the kit by relative
+      # path), seeds the theme through localStorage before first paint, and
+      # launches chromium with swiftshader so a runner with no GPU still gets a
+      # WebGL context and the map really renders. It reports whether the map
+      # rendered but does not gate on it: the boundary archive is a network
+      # dependency, and the accessibility of the rest of the page does not
+      # depend on it.
+      - name: Run axe over demo/ (light + high-contrast, 1440px + 390px)
+        run: node tools/a11y-audit.mjs

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Kit Demo · Sustainable FSA</title>
+  <meta name="description" content="Living component gallery for the Sustainable FSA house-style kit: navbar, panels, toast, tooltip, detail card, legends, county search, help modal, and the live FSA county composite.">
+  <meta name="author" content="Sustainable FSA">
+  <meta name="theme-color" content="#B7410E">
+  <link rel="icon" href="../assets/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       Anti-flash theme boot — a VERBATIM copy of snippets/anti-flash.html,
+       inlined here exactly as a consumer must inline it: after the CSP (this
+       page ships none — see below), before the first stylesheet. Do not
+       reformat it; the sha256 in snippets/head.html is the hash of these
+       exact bytes.
+
+       THIS PAGE DELIBERATELY SHIPS NO Content-Security-Policy. It is an
+       in-repo development page that loads the kit by RELATIVE path and
+       carries a block of demo-only inline CSS, so its policy would be a
+       different policy from the one consumers need. The canonical CSP, and
+       the recipe for re-hashing the script below from your own page, are in
+       snippets/head.html and snippets/anti-flash.html. tools/consumer-verify.mjs
+       is where a real app's CSP gets tested — a blocked script shows up there
+       as a console error.
+       ══════════════════════════════════════════════════════════════════════ -->
+  <script>
+  (function () {
+    var valid = ['light', 'high-contrast'];
+    var raw = new URLSearchParams(location.search).get('theme');
+    var url = raw == null ? null : raw.toLowerCase();
+    var saved = null;
+    try { saved = localStorage.getItem('sfsa-theme'); } catch (e) {}
+    var moreContrast = window.matchMedia('(prefers-contrast: more)').matches;
+    var t = valid.indexOf(url) > -1 ? url
+          : valid.indexOf(saved) > -1 ? saved
+          : (moreContrast ? 'high-contrast' : 'light');
+    document.documentElement.dataset.theme = t;
+  })();
+  </script>
+
+  <!-- Relative paths throughout: this page develops against the working tree,
+       exactly like a vX.Y.Z/ snapshot serves itself. A consuming app uses full
+       versioned URLs instead (snippets/head.html). crossorigin on a font
+       preload is mandatory even same-origin. -->
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="../theme/fonts/roboto-v51-latin-wght.woff2">
+  <link rel="stylesheet" href="../vendor/maplibre-gl-5.18.0/maplibre-gl.css">
+  <link rel="stylesheet" href="../theme/sfsa-theme.css">
+
+  <style>
+    /* ═══ DEMO-PAGE LAYOUT ONLY — nothing in this block is part of the kit. ═══
+       Every value below is either a kit token or plain layout. If something
+       here starts to look like a component, it belongs in theme/sfsa-theme.css
+       instead — but only once a second property needs it (AGENTS.md §5). */
+
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 1.5rem max(1rem, env(safe-area-inset-right))
+               5rem max(1rem, env(safe-area-inset-left));
+    }
+
+    .demo-section { margin-top: 2.75rem; }
+    .demo-section > h2 {
+      font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--ochre-dark);                     /* 4.91:1 on cream */
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem; margin-bottom: 0.75rem;
+    }
+    .demo-section > p {
+      font-size: 0.85rem; line-height: 1.55; color: var(--text-muted);
+      max-width: 72ch; margin-bottom: 1rem;
+    }
+    .demo-section code {
+      font-family: var(--font-mono); font-size: 0.85em;
+      background: var(--bg-raised); border-radius: 3px; padding: 1px 4px;
+      color: var(--text-primary);
+    }
+    .demo-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+
+    /* A neutral surface for components the kit positions absolutely
+       (.sfsa-panel, .sfsa-card): in an app that ancestor is the map. */
+    .demo-stage {
+      position: relative; min-height: 200px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+    }
+
+    .demo-control { display: flex; align-items: center; gap: 0.35rem; }
+    .demo-select {
+      min-height: 34px; padding: 0.3rem 0.5rem;
+      background: var(--input-bg); color: var(--text-primary);
+      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
+      font: inherit; font-size: 0.78rem;
+    }
+    .demo-select:hover { border-color: var(--accent-line); }
+    @media (hover: none) { .demo-select { min-height: 40px; } }
+
+    /* .sfsa-panel and .sfsa-card ship without inset properties on purpose —
+       the kit does not know which corner is free. This is the app's half. */
+    #demo-panel { top: 0.75rem; left: 0.75rem; }
+    #county-card { right: 0.75rem; bottom: 0.75rem; max-height: calc(100% - 1.5rem); }
+
+    /* The shipped .sfsa-tooltip is position:fixed and starts transparent
+       because it follows a pointer. This specimen sits in the flow instead so
+       the anatomy is readable at rest. */
+    .demo-tooltip-sample { position: static; opacity: 1; display: inline-block; }
+
+    .demo-legends { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem; }
+    .demo-legend-box {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 0.8rem;
+    }
+
+    #map-wrap {
+      position: relative; height: 460px;
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    #map { width: 100%; height: 100%; }
+
+    .demo-note {
+      font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--text-muted); margin-top: 0.6rem; line-height: 1.5;
+    }
+    .demo-error {
+      margin-top: 0.6rem; padding: 0.6rem 0.75rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--accent-line); border-left-width: 4px;
+      border-radius: var(--radius-md);
+      font-size: 0.82rem; color: var(--text-secondary);
+    }
+
+    .demo-dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.75rem; font-size: 0.82rem; }
+    .demo-dl dt { color: var(--text-muted); }
+    .demo-dl dd { color: var(--text-primary); font-family: var(--font-mono); }
+
+    /* kit-override: the theme styles .info-section prose (p, ul, a, kbd, code)
+       but ships no table rules, and ui/help.js turns GFM tables ON precisely
+       because help copy in this fleet is mostly tables. Reported upstream;
+       until it lands in the kit, the demo's help modal styles its own. */
+    .info-section table { border-collapse: collapse; width: 100%; font-size: 0.8rem; margin: 0.5rem 0; }
+    .info-section th, .info-section td {
+      border: 1px solid var(--border); padding: 0.3rem 0.5rem;
+      text-align: left; color: var(--text-secondary);
+    }
+    .info-section th { color: var(--text-primary); background: var(--bg-raised); }
+
+    footer {
+      max-width: 1080px; margin: 0 auto;
+      padding: 1.5rem max(1rem, env(safe-area-inset-right))
+               3rem max(1rem, env(safe-area-inset-left));
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem; line-height: 1.6; color: var(--text-muted);
+    }
+    footer a { color: var(--accent-line); text-decoration: underline; text-underline-offset: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- snippets/skip-link.html — first focusable element on the page. -->
+<a class="sfsa-skip-link" href="#main">Skip to main content</a>
+
+<!-- ══ NAVBAR ══════════════════════════════════════════════════════════════
+     Full anatomy: .logo-link (both lockup images) + .nav-divider + .brand +
+     .controls + .nav-meta. Section 1 of the gallery below describes it. -->
+<header class="sfsa-navbar">
+  <a class="logo-link" href="https://sustainable-fsa.com/" aria-label="Sustainable FSA — home">
+    <!-- Two sibling images, swapped by a pure-CSS breakpoint at ≤750px. Both
+         carry alt="" — they never show at once and the link's aria-label names
+         it either way (HOUSE-STYLE §5.11). Explicit dimensions reserve layout
+         space so neither swap reflows the bar. -->
+    <img class="banner-img" src="../assets/sustainable-fsa-banner.svg" alt="" width="1225" height="350">
+    <img class="badge-img" src="../assets/android-chrome-192x192.png" alt="" width="192" height="192">
+  </a>
+  <div class="nav-divider" aria-hidden="true"></div>
+  <div class="brand">
+    <h1 class="brand-title">Kit Demo</h1>
+    <span class="brand-subtitle">Sustainable FSA house style</span>
+  </div>
+
+  <div class="controls">
+    <!-- Range + live output. The year drives the BOUNDARY VINTAGE below:
+         dd17 for ≤2014, dd22 for ≥2015, never interpolated. -->
+    <div class="sfsa-range">
+      <label class="control-label" for="demo-year">Program year</label>
+      <input type="range" id="demo-year" min="2010" max="2026" step="1" value="2023">
+      <output id="demo-year-out" for="demo-year">2023</output>
+    </div>
+
+    <!-- A labelled <select>. The ≤1400px ladder CLIPS this label rather than
+         display:none-ing it, so the control keeps its accessible name. -->
+    <div class="demo-control">
+      <label class="control-label" for="demo-vintage">Vintage</label>
+      <select class="demo-select" id="demo-vintage">
+        <option value="auto" selected>Follow year</option>
+        <option value="dd17">dd17</option>
+        <option value="dd22">dd22</option>
+      </select>
+    </div>
+
+    <!-- Segmented buttons: aria-pressed IS the styling source of truth. -->
+    <div class="seg-btns" role="group" aria-label="County fill">
+      <button type="button" class="nav-btn seg-btn" data-fill="groups" aria-pressed="true">Groups</button>
+      <button type="button" class="nav-btn seg-btn" data-fill="single" aria-pressed="false">Single</button>
+      <button type="button" class="nav-btn seg-btn" data-fill="none" aria-pressed="false">None</button>
+    </div>
+
+    <!-- The county combobox (ui/search.js). Below 640px .sfsa-search-collapse
+         hides it here and .sfsa-search-toggle re-opens it as an overlay bar. -->
+    <div class="sfsa-combobox sfsa-search-collapse" id="search-wrap">
+      <label class="sr-only" for="demo-search">Find a county</label>
+      <input type="search" id="demo-search" placeholder="Find a county…">
+      <kbd aria-hidden="true">/</kbd>
+      <!-- role="listbox" usually means someone reached for ARIA where a native select
+           would do. Not here: this is an ARIA 1.2 combobox with a listbox popup (theme
+           CSS § Combobox, ui/search.js) — the input keeps DOM focus and the rows are
+           aria-activedescendant targets, which a select cannot express. ui/search.js
+           fills the list; it is empty and hidden until a query matches. -->
+      <!-- [html-validate-disable-next prefer-native-element -- ARIA 1.2 combobox popup, not a select] -->
+      <ul id="demo-results" role="listbox" aria-label="County search results" hidden></ul>
+    </div>
+  </div>
+
+  <div class="nav-meta">
+    <span class="refresh-status" id="refresh-status">
+      <span class="dot" aria-hidden="true"></span><span>demo</span>
+    </span>
+
+    <button type="button" class="nav-btn icon-only sfsa-search-toggle" id="btn-search-toggle"
+            aria-expanded="false" aria-controls="search-wrap" aria-label="Find a county">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </button>
+
+    <!-- .btn-label + a PERMANENT aria-label: below 1400px the label is clipped
+         (not removed), and the aria-label is the belt to that suspenders. -->
+    <button type="button" class="nav-btn" id="btn-toast" aria-label="Show a toast">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linejoin="round" aria-hidden="true">
+        <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>
+      </svg>
+      <span class="btn-label">Toast</span>
+    </button>
+
+    <button type="button" class="nav-btn" id="btn-fit" aria-label="Zoom the map to its full extent" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="4 8 4 4 8 4"/><polyline points="20 8 20 4 16 4"/>
+        <polyline points="4 16 4 20 8 20"/><polyline points="20 16 20 20 16 20"/>
+      </svg>
+      <span class="btn-label">Full extent</span>
+    </button>
+
+    <!-- Binary theme toggle (core initThemeToggle): aria-pressed + a swapped
+         aria-label. There is no dark theme in this brand. The label is written
+         out here as well as by the toggle, so the button is still named if the
+         module never runs. -->
+    <button type="button" class="nav-btn icon-only" id="btn-theme"
+            aria-label="Switch to high-contrast theme">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+
+    <button type="button" class="nav-btn sfsa-btn-info" id="btn-info" aria-label="About this demo">?</button>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <!-- ══ 1 ══ -->
+  <section class="demo-section" id="sec-navbar">
+    <h2>Navbar</h2>
+    <p>The bar above is the specimen: <code>.logo-link</code> carrying both lockup images,
+       <code>.nav-divider</code>, <code>.brand</code> (the page <code>h1</code> plus its subtitle),
+       <code>.controls</code> (a range with a live <code>output</code>, a labelled
+       <code>select</code>, a three-way <code>.seg-btns</code> group, and the county combobox),
+       then <code>.nav-meta</code> with the search toggle, two labelled buttons, the theme
+       toggle and the round <code>.sfsa-btn-info</code>. Narrow the window to walk the ladder:
+       <strong>1400</strong> clips the button and control labels (clipped, never
+       <code>display:none</code> — that removes the accessible name), <strong>1060</strong>
+       tightens the gaps, <strong>750</strong> swaps the wide banner for the square badge and
+       hides the text lockup visually, <strong>640</strong> drops the refresh dot and collapses
+       search into the magnifier.</p>
+    <p class="demo-note" id="vp-status" role="status"></p>
+  </section>
+
+  <!-- ══ 2 ══ -->
+  <section class="demo-section" id="sec-panel">
+    <h2>Panel and scrim</h2>
+    <p>A floating glass <code>.sfsa-panel</code> with a collapsible body, wired by core's
+       <code>initCollapsible</code>: the toggle carries <code>aria-expanded</code>, the body
+       animates shut and only then takes <code>[hidden]</code>, so collapsed content leaves the
+       tab order. It remembers its state under an app-prefixed key and starts collapsed on a
+       compact viewport unless you have told it otherwise. In an app this is the legend dock
+       over the map; the stage below stands in for that.</p>
+    <div class="demo-stage">
+      <div class="sfsa-panel" id="demo-panel">
+        <div class="sfsa-panel-head">
+          <h3 class="sfsa-panel-title" id="demo-panel-title">Panel title</h3>
+          <button type="button" class="sfsa-panel-toggle" id="demo-panel-toggle"
+                  aria-controls="demo-panel-body" aria-label="Panel contents">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m6 15 6-6 6 6"/>
+            </svg>
+          </button>
+        </div>
+        <div class="sfsa-panel-body" id="demo-panel-body">
+          <dl class="demo-dl">
+            <dt>Surface</dt><dd>--glass</dd>
+            <dt>Tier</dt><dd>--z-map-panel (40)</dd>
+            <dt>Corner</dt><dd>set by the app</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <p>The kit's other page-level surface is <code>.sfsa-scrim</code> — the dimming layer an
+       app puts behind an off-canvas drawer on a compact viewport. It sits one tier below the
+       drawer and, like every floating surface here, takes its number from the one z-index
+       ladder rather than inventing one. Raise it and the detail card stays above it, because
+       <code>--z-detail</code> outranks <code>--z-map-panel</code>.</p>
+    <div class="demo-row">
+      <button type="button" class="nav-btn" id="btn-scrim"><span class="btn-label">Raise the scrim</span></button>
+    </div>
+  </section>
+
+  <!-- ══ 3 ══ -->
+  <section class="demo-section" id="sec-toast">
+    <h2>Toast</h2>
+    <p>Transient status, 2800 ms by default, one per page, announced politely through
+       <code>role="status"</code>. Core creates and appends the element on first use; the
+       navbar's lightning button fires the same one. While a bottom sheet is docked the toast
+       lifts above it by <code>--sheet-h</code>.</p>
+    <div class="demo-row">
+      <button type="button" class="nav-btn" id="btn-toast-section">
+        <span class="btn-label">Fire a toast</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ══ 4 ══ -->
+  <section class="demo-section" id="sec-tooltip">
+    <h2>Tooltip</h2>
+    <p>The pointer-following <code>.sfsa-tooltip</code>, at rest. It is
+       <code>aria-hidden</code> decoration — a screen reader can no more follow a cursor than
+       it can read a WebGL canvas, so the same content has to reach assistive tech another way
+       (the live region and the card below the map do that here). The live one is on the county
+       map at the bottom of this page.</p>
+    <div class="sfsa-tooltip visible demo-tooltip-sample" aria-hidden="true">
+      <span class="tooltip-name">Doña Ana, New Mexico</span>
+      <span class="tooltip-sub">FSA 35013</span>
+      <span class="tooltip-val">State group C</span>
+    </div>
+  </section>
+
+  <!-- ══ 5 ══ -->
+  <section class="demo-section" id="sec-card">
+    <h2>Detail card</h2>
+    <p>The docked detail surface (<code>ui/card.js</code>): <code>role="dialog"</code> with
+       <code>aria-modal="false"</code> — deliberately <em>not</em> a <code>&lt;dialog&gt;</code>,
+       because <code>showModal()</code> would make the map inert and panning, zooming and
+       searching with a county open are exactly the things you do with a county open. Focus
+       moves in on open and returns to the opener on close; Escape closes it, but yields to any
+       layer above it. <strong>The card lives over the live map at the foot of this page</strong>,
+       which is where an app puts it — and below 640px (or on a short landscape window) it
+       stops floating and docks as a bottom sheet, stamping its height on <code>--sheet-h</code>
+       so the map's corner controls and the toast lift clear of it.</p>
+    <div class="demo-row">
+      <button type="button" class="nav-btn" id="btn-card-open"><span class="btn-label">Open the card</span></button>
+      <button type="button" class="nav-btn" id="btn-card-close"><span class="btn-label">Close the card</span></button>
+    </div>
+  </section>
+
+  <!-- ══ 6 ══ -->
+  <section class="demo-section" id="sec-legends">
+    <h2>Legends</h2>
+    <p>Both legend forms from <code>ui/legend.js</code>. Colour is never the sole channel: the
+       swatches are <code>aria-hidden</code> decoration and the labels, ticks and plain-language
+       key carry the meaning. "No data" is a category, not an absence, and its chip is outlined
+       so it survives the high-contrast theme. Ramps are <em>data</em>, so they are literal
+       colour strings the caller owns — the kit neither tokenizes nor theme-swaps them.</p>
+    <div class="demo-legends">
+      <div class="demo-legend-box" id="legend-colorbar"></div>
+      <div class="demo-legend-box" id="legend-swatches"></div>
+    </div>
+  </section>
+
+  <!-- ══ 7 ══ -->
+  <section class="demo-section" id="sec-search">
+    <h2>Search combobox</h2>
+    <p>The ARIA 1.2 combobox in the navbar (<code>ui/search.js</code>) is the
+       <strong>keyboard twin</strong> for clicking a county on the canvas, which makes it an
+       accessibility obligation rather than a convenience. Matching folds diacritics and case
+       and ranks label-prefix over code-prefix over word-start over substring, results are
+       capped with a counted overflow row, and every filter pass announces its total through
+       the live region. Arrow keys move <code>aria-selected</code> while DOM focus stays in the
+       input; Enter takes the active row, or the top hit if you never moved. It starts over a
+       thirty-row fixture and is refreshed with the real county list once the map's geometry
+       lands.</p>
+    <p class="demo-note" id="search-result">Nothing picked yet.</p>
+  </section>
+
+  <!-- ══ 8 ══ -->
+  <section class="demo-section" id="sec-modal">
+    <h2>Modal</h2>
+    <p>A native <code>&lt;dialog class="sfsa-modal"&gt;</code> filled by
+       <code>ui/help.js</code> from <code>demo/help-demo.md</code> — repo-authored markdown,
+       rendered with the vendored <code>marked</code> build and GFM tables on. Backdrop click
+       closes, Escape closes, focus returns to whichever button opened it. No
+       <code>firstVisitKey</code> here on purpose: a gallery that opens a modal at you on every
+       visit is a gallery nobody reads.</p>
+    <div class="demo-row">
+      <button type="button" class="nav-btn" id="btn-modal"><span class="btn-label">Open the modal</span></button>
+    </div>
+  </section>
+
+  <!-- ══ 9 ══ -->
+  <section class="demo-section" id="sec-map">
+    <h2>Live county map</h2>
+    <p>The whole map stack: <code>createCompositeMap</code> on a cream canvas with no basemap,
+       no rotation and no pitch; house navigation and fit-to-extent controls fused into one
+       group; the zoom floor that springs the camera back when the composite stops filling the
+       frame; the FSA county composite decoded from the boundary archive for the program year's
+       vintage; the pointer tooltip; and the detail card on click. County ids are
+       <strong>5-character FSA strings</strong> end to end — never FIPS, never parsed to a
+       number. Export writes a branded PNG through <code>ui/export.js</code>.</p>
+    <div class="demo-row">
+      <button type="button" class="nav-btn" id="btn-export">
+        <span class="btn-label">Export PNG</span>
+      </button>
+      <button type="button" class="nav-btn" id="btn-clear"><span class="btn-label">Clear selection</span></button>
+    </div>
+    <div id="map-wrap">
+      <div id="map" role="application" aria-label="FSA county composite of the United States"></div>
+
+      <!-- The detail surface. Positioned by this page (bottom-right of the map);
+           §6 of the theme docks it as a bottom sheet under compact. -->
+      <div class="sfsa-card" id="county-card" aria-labelledby="county-card-title" hidden>
+        <div class="sfsa-card-head">
+          <h3 class="sfsa-card-title" id="county-card-title">County</h3>
+          <button type="button" class="card-close" id="county-card-close" aria-label="Close county details">&times;</button>
+        </div>
+        <div class="sfsa-card-body">
+          <dl class="demo-dl" id="county-card-dl">
+            <dt>FSA id</dt><dd id="cc-id">—</dd>
+            <dt>State</dt><dd id="cc-state">—</dd>
+            <dt>Vintage</dt><dd id="cc-vintage">—</dd>
+            <dt>Fill</dt><dd id="cc-group">—</dd>
+          </dl>
+          <p class="demo-note" id="cc-note">Click a county on the map, or find one in the navbar search.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- The always-on half of the hidden-table twin (HOUSE-STYLE §5.2): a short
+         summary of the current render. The on-demand full table is an app
+         obligation; this gallery has no data worth tabulating. -->
+    <p class="sr-only" id="sr-summary" role="status"></p>
+    <p class="demo-note" id="map-note">Loading the county composite…</p>
+  </section>
+
+</main>
+
+<footer>
+  <p><a href="https://github.com/sustainable-fsa/style">sustainable-fsa/style</a> ·
+     MIT · a project of the <a href="https://climate.umt.edu">Montana Climate Office</a> ·
+     kit version <span id="kit-version">—</span></p>
+  <p>Every component on this page is exercised by <code>tools/a11y-audit.mjs</code> in both
+     themes at 1440px and 390px. If you add a component to the kit and not to this page, the
+     accessibility gate is auditing nothing.</p>
+</footer>
+
+<dialog class="sfsa-modal" id="help-modal" aria-labelledby="help-modal-title">
+  <div class="info-modal-box">
+    <div class="info-modal-header">
+      <div>
+        <h2 class="info-modal-title" id="help-modal-title">About this demo</h2>
+        <p class="info-modal-subtitle">Sustainable FSA house-style kit</p>
+      </div>
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">&times;</button>
+    </div>
+    <!-- ui/help.js replaces the contents of [data-help-content] with the
+         rendered markdown, or with its fallback if the fetch fails. -->
+    <div class="info-section" data-help-content>
+      <p>Loading help…</p>
+    </div>
+  </div>
+</dialog>
+
+<!-- The two vendored UMD builds are CLASSIC scripts and define the globals
+     `maplibregl` and `topojson`. The demo module is deferred by definition, so
+     it runs after both and after the document has parsed. -->
+<script src="../vendor/maplibre-gl-5.18.0/maplibre-gl.js"></script>
+<script src="../vendor/topojson-client-3.1.0/topojson-client.min.js"></script>
+<script type="module" src="demo.js"></script>
+</body>
+</html>

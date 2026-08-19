@@ -1,0 +1,70 @@
+# Internal-consistency gates for the Sustainable FSA house-style kit.
+#
+# The kit itself is zero-dependency and zero-build (AGENTS.md §1): nothing
+# installed in this workflow is a runtime dependency, package.json is gitignored
+# on purpose, and every gate below is either plain `node` or an ephemeral npx.
+#
+# The accessibility gate is a separate workflow (a11y.yml) because it needs a
+# browser download and takes minutes rather than seconds.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Every published module is parsed as an ES MODULE. `node --check` picks
+      # its parse goal from the file extension, and a .js file is a script — so
+      # `import` is a syntax error and the check is worse than useless.
+      #
+      # The copy is a SIBLING, never /tmp: these files import their neighbours
+      # by relative path (ui/help.js reaches ../vendor-esm/marked-18.0.10/), and
+      # a file checked outside its own directory is a file whose import graph
+      # cannot be resolved. Vendored third-party bundles are not checked here —
+      # their bytes are pinned and verified by check-frozen instead.
+      - name: Syntax-check the ES modules
+        run: |
+          status=0
+          for f in core/core.js map/map.js county/county.js ui/*.js demo/demo.js; do
+            tmp="${f%.js}.__check.mjs"
+            cp "$f" "$tmp"
+            node --check "$tmp" || { echo "::error file=$f::syntax error"; status=1; }
+            rm -f "$tmp"
+          done
+          exit $status
+
+      # Theme parity, tokens.json sync, the required-token list, and the compact
+      # media query being one string in three files.
+      - name: Token parity and JSON sync
+        run: node tools/check-tokens.mjs
+
+      # The WCAG matrix the shipped token values actually achieve.
+      - name: WCAG contrast matrix
+        run: node tools/check-contrast.mjs
+
+      # Released vX.Y.Z/ snapshots, vendored library hashes, and the kit URLs in
+      # the consumer <head> snippet. This is what stands in for SRI here.
+      - name: Frozen releases and vendored hashes
+        run: node tools/check-frozen.mjs
+
+      # demo/index.html ONLY. snippets/*.html are deliberately excluded: they are
+      # FRAGMENTS (a bare <head> body, one <script>, one <a>) with no doctype, no
+      # <html> and no <title>, so a document validator reports nothing about them
+      # except that they are not documents. Config: .htmlvalidate.json at the
+      # repo root, pinned to html-validate:recommended.
+      - name: Validate HTML
+        run: npx --yes html-validate@9 demo/index.html
