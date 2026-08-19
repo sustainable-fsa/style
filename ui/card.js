@@ -59,7 +59,8 @@
         focus is inside the card).
      3. Escape yields to a handled event (`defaultPrevented`) so a combobox
         dropdown and this card can share one Escape key — see ui/search.js §
-        ESCAPE PRECEDENCE.
+        ESCAPE PRECEDENCE — and MARKS the key consumed when it is this card
+        that closes, so the layers below can yield in turn.
      4. NEW: the compact bottom-sheet height stamp (`--sheet-h`), which the
         theme's MapLibre corner controls and toast lift by. MCO has no card
         component and no sheet.
@@ -198,13 +199,32 @@ export function initDetailCard({ card, closeBtn, onClose, sheetVar = '--sheet-h'
     }
   }
 
+  /** ESCAPE PRECEDENCE, this card's half of the contract (the other half is
+      written out in ui/search.js):
+
+        • a layer ABOVE us already consumed the key → do nothing. ui/search.js
+          closes its dropdown with preventDefault + stopPropagation, and a
+          modal <dialog> closes itself in the top layer.
+        • this card consumes it → close AND preventDefault(), so every layer
+          BELOW can tell the key is spoken for.
+
+      That second half is the fix for a real defect: without the
+      preventDefault() a single Escape dismissed the card AND the scrim
+      underneath it, because a document-level handler further down the page had
+      no flag to test — the card read `defaultPrevented` but never set it.
+      Anything that listens for Escape below a card MUST check
+      `event.defaultPrevented` and stand down when it is true. One Escape
+      dismisses exactly one layer, top-down.
+
+      Not stopPropagation(): every one of these handlers is on `document`, and
+      stopping propagation between listeners on the SAME node needs
+      stopImmediatePropagation(), which would silence layers by registration
+      order — the opposite of a stacking contract. The flag is the contract. */
   function onKeyDown(e) {
     if (e.key !== 'Escape' || !isOpen()) return;
-    // A layer above us already consumed this Escape: ui/search.js closes its
-    // dropdown with preventDefault + stopPropagation, and a modal dialog
-    // closes itself in the top layer. One Escape dismisses one layer.
     if (e.defaultPrevented || modalIsOpen()) return;
     close();
+    e.preventDefault();
   }
   // Document-level, not card-level: focus is usually on the map canvas or the
   // search field while the card is open, so a listener on the card would

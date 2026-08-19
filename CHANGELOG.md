@@ -78,6 +78,48 @@ pilot did not first prove.
   [AGENTS.md](AGENTS.md) (the guardrails), [CONSUMERS.md](CONSUMERS.md)
   (adoption), [MIGRATING.md](MIGRATING.md) (the playbook).
 
+### Fixed
+
+Defects the demo and the audit gate found in the kit's own code before 0.1.0 was
+cut. Nothing here is a contract change for a consumer that does not exist yet;
+the API additions are listed with the fix that needed them.
+
+- **`map/map.js`** — `cameraParamsIfDefault()` now compares against the pose a
+  fit ACTUALLY settles at inside the `maxBounds` cage, remembered from the last
+  fit the kit saw land, rather than asking `map.cameraForBounds()`, which
+  ignores the cage. On the wide, short containers this fleet's maps live in the
+  cage holds a higher zoom than the fit reports (measured on the demo's 1048×460
+  map: 3.385 against 2.922), so the comparison never matched, every untouched
+  map emitted `?lng&lat&zoom`, and the clean-URL rule (HOUSE-STYLE §4) was
+  broken on arrival. Adds **`fitDefault()`** — the fit an app calls instead of
+  `map.fitBounds()` so the pose stays known — and **`defaultPose()`**, plus a
+  `defaultPose` option on `cameraParamsIfDefault()` for an app that tracks its
+  own.
+- **`map/map.js`** — `installZoomFloor()`'s `refresh(newBounds)` takes the new
+  extent, which is what its JSDoc always told callers to do after a bounds
+  change even though `bounds` was captured at install; `bounds` may now be a
+  function like `fitOpts` in both `installZoomFloor()` and `addFitControl()`;
+  and the fit control gained `setBounds()`. Re-pointing either helper at a new
+  vintage no longer means removing and re-installing it.
+- **`ui/search.js`** — the zero-results row and the counted overflow row are
+  `role="option"` + `aria-disabled="true"` instead of `role="presentation"`. A
+  listbox whose only child was a presentation row had no options at all, which
+  axe scores **critical** (`aria-required-children`) — it fired in all four
+  theme×viewport combos on any query that matched nothing. The rows stay
+  unselectable: skipped by arrow navigation, never active, inert to Enter and to
+  the pointer. `tools/a11y-audit.mjs` now runs its combobox probe over the
+  zero-result state as well as the matching one.
+- **`ui/card.js`** — the card calls `preventDefault()` on an Escape it consumes,
+  so the layers below it can stand down; it already yielded to the layers above
+  it by reading `defaultPrevented`. Without it one Escape dismissed the card AND
+  the surface underneath it. Anything listening for Escape below a card must
+  check `event.defaultPrevented`.
+- **`theme/sfsa-theme.css`** — `.sfsa-modal .info-section` tables have house
+  styling (`ui/help.js` enables GFM tables and help copy in this fleet is mostly
+  tables); the demo's local `kit-override` table block is gone. Deliberately no
+  scroll container of their own — that would be an axe-serious
+  `scrollable-region-focusable` waiting to happen.
+
 ### Notes
 
 - Architecture re-implemented from

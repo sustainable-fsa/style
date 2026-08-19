@@ -32,7 +32,7 @@ import {
 } from '../core/core.js';
 import {
   COMPOSITE_BOUNDS, addFitControl, addNavigation, cameraParamsIfDefault,
-  createCompositeMap, installZoomFloor, resolveToken,
+  createCompositeMap, fitDefault, installZoomFloor, resolveToken,
 } from '../map/map.js';
 import {
   BOUNDARY_URLS, addCountyLayers, countyCentroid, initCountyTooltip,
@@ -183,15 +183,14 @@ $('kit-version').textContent = 'v' + KIT_VERSION;
    view emits a CLEAN URL — nothing but the pathname — which is why every line
    below is conditional and why the camera goes through cameraParamsIfDefault.
 
-   KNOWN KIT ISSUE, reported not worked around: cameraParamsIfDefault() decides
-   "is this the default pose?" by asking map.cameraForBounds(), which does NOT
-   apply the maxBounds cage that createCompositeMap() installs. On a wide, short
-   map container — the shape of every county map in this fleet — the cage
-   constrains the real camera to a higher zoom than cameraForBounds reports
-   (measured here: 3.385 against 2.922), so the default view never compares
-   equal and ?lng&lat&zoom is emitted even before anyone has touched the map.
-   Masking it from the demo (a looser eps, a wider maxBoundsPadDeg) would hide
-   the one page most likely to surface it. */
+   That call compares against the pose the kit REMEMBERED from the last fit it
+   saw land (map.js § Default pose), which is the pose the maxBounds cage
+   actually allows — map.cameraForBounds() ignores the cage, and on a wide,
+   short container it under-reports the zoom by half a level, which is what used
+   to put ?lng&lat&zoom on an untouched map. The consumer-side half of that
+   contract is one rule: re-frame through fitDefault(), never a raw
+   map.fitBounds(), so the kit knows a fit is what landed. Both re-frames on this
+   page (the toolbar button below, the re-fit after a decode) follow it. */
 
 function currentBounds() {
   return counties ? counties.bounds : COMPOSITE_BOUNDS;
@@ -308,19 +307,13 @@ $('btn-clear').addEventListener('click', () => {
 let scrim = null;
 
 function onScrimKey(e) {
-  if (e.key !== 'Escape' || e.defaultPrevented) return;
   // ONE ESCAPE DISMISSES ONE LAYER, top down. The card sits a tier above the
   // scrim (--z-detail 60 over --z-map-panel 40), so while it is open it owns
-  // the key and the scrim waits its turn.
-  //
-  // This listener therefore runs in the CAPTURE phase. Two reasons, and both
-  // are needed: ui/card.js registers its document-level Escape handler at boot,
-  // so a bubble-phase listener added later would run AFTER the card had already
-  // closed itself and would read isOpen() as false — dismissing two layers on
-  // one key. And ui/card.js READS defaultPrevented (yielding to ui/search.js)
-  // but never SETS it, so there is no flag to test after the fact either.
-  // Capturing first lets the demo see the true state and stand down.
-  if (card.isOpen()) return;
+  // the key — and ui/card.js now marks the Escape it consumes as handled, so
+  // the flag below is the whole of the check. A plain bubble-phase listener:
+  // the card's own document handler was registered first and has therefore
+  // already set defaultPrevented by the time this runs.
+  if (e.key !== 'Escape' || e.defaultPrevented) return;
   e.preventDefault();
   hideScrim();
 }
@@ -329,7 +322,7 @@ function hideScrim() {
   if (!scrim) return;
   scrim.remove();
   scrim = null;
-  document.removeEventListener('keydown', onScrimKey, true);
+  document.removeEventListener('keydown', onScrimKey);
   $('btn-scrim').focus();
 }
 
@@ -340,7 +333,7 @@ $('btn-scrim').addEventListener('click', () => {
   scrim.setAttribute('aria-hidden', 'true');
   scrim.addEventListener('click', hideScrim);
   document.body.appendChild(scrim);
-  document.addEventListener('keydown', onScrimKey, true);
+  document.addEventListener('keydown', onScrimKey);
   showToast('Scrim raised — click it, press Escape, or press the button again.');
 });
 
@@ -516,9 +509,12 @@ syncSwatchLegend();
 
 $('btn-fit').addEventListener('click', () => {
   if (!map) return;
-  // Reduced motion is read AT CLICK TIME, not at wiring time — the reader can
-  // flip the OS setting mid-session (WCAG 2.3.3).
-  map.fitBounds(currentBounds(), { ...fitOpts, animate: !reducedMotion() });
+  // fitDefault(), not map.fitBounds(): this button asks for the default view
+  // back, so the pose it lands on has to be recorded as the default pose or the
+  // URL would keep a camera nobody chose. (It also reads reduced motion AT
+  // CLICK TIME rather than at wiring time — WCAG 2.3.3, the reader can flip the
+  // OS setting mid-session.)
+  fitDefault(map, { bounds: currentBounds(), fitOpts });
 });
 
 /* ── The county map ──────────────────────────────────────────────────────────
@@ -669,32 +665,23 @@ async function loadVintage() {
     handle.swapVintage(counties);
   }
 
-  // Both the fit control and the zoom floor capture `bounds` when they are
-  // installed, so re-arming them against the decoded geometry means replacing
-  // them, not just calling refresh(). counties.bounds is recomputed from the
-  // features and is the authority; COMPOSITE_BOUNDS was only a boot-time
-  // stand-in for the frames before this.
-  if (fitCtl) map.removeControl(fitCtl);
-  fitCtl = addFitControl(map, {
-    bounds: counties.bounds,
-    fitOpts,
-    onBeforeFit: () => card.close(),
-  });
-  if (zoomFloor) zoomFloor.dispose();
-  zoomFloor = installZoomFloor(map, {
-    bounds: counties.bounds,
-    fitOpts,
-    // App policy: don't yank the camera out from under an open county.
-    onBeforeSnap: () => (card.isOpen() ? false : undefined),
-  });
-  zoomFloor.refresh();
+  // Re-point both camera helpers at the decoded geometry. counties.bounds is
+  // recomputed from the features and is the authority; COMPOSITE_BOUNDS was
+  // only a boot-time stand-in for the frames before this. Neither has to be
+  // torn down and re-installed: setBounds() and refresh(newBounds) replace the
+  // extent in place, and both drop the remembered default pose with it, since
+  // it framed the extent they just left behind.
+  if (fitCtl) fitCtl.setBounds(counties.bounds);
+  if (zoomFloor) zoomFloor.refresh(counties.bounds);
 
   // Re-frame on the decoded geometry — unless the reader arrived with a camera
   // in the URL, which they chose and we don't get to overrule. Without this the
   // camera stays at the COMPOSITE_BOUNDS boot fit while every later comparison
   // is against counties.bounds, so cameraParamsIfDefault would never recognise
   // the default view and the "all defaults ⇒ clean URL" rule would never hold.
-  if (!BOOT_CAMERA) map.fitBounds(counties.bounds, { ...fitOpts, animate: false });
+  // Through fitDefault(), so the pose this lands on becomes the pose that rule
+  // is measured against.
+  if (!BOOT_CAMERA) fitDefault(map, { bounds: counties.bounds, fitOpts, animate: false });
 
   searchBox.refresh(searchItems(counties));
   $('search-result').textContent =
@@ -718,9 +705,20 @@ try {
 
   addNavigation(map);
   // Installed before any geometry so the controls exist even if the fetch
-  // fails; re-armed against counties.bounds once it lands.
-  fitCtl = addFitControl(map, { bounds: COMPOSITE_BOUNDS, fitOpts });
-  zoomFloor = installZoomFloor(map, { bounds: COMPOSITE_BOUNDS, fitOpts });
+  // fails; re-pointed at counties.bounds once it lands (loadVintage), which is
+  // a setBounds()/refresh(newBounds) call rather than a re-install, so the app
+  // policy wired in here is wired in once.
+  fitCtl = addFitControl(map, {
+    bounds: COMPOSITE_BOUNDS,
+    fitOpts,
+    onBeforeFit: () => card.close(),
+  });
+  zoomFloor = installZoomFloor(map, {
+    bounds: COMPOSITE_BOUNDS,
+    fitOpts,
+    // App policy: don't yank the camera out from under an open county.
+    onBeforeSnap: () => (card.isOpen() ? false : undefined),
+  });
 
   map.on('load', () => {
     zoomFloor.refresh();     // cameraForBounds needs a laid-out container

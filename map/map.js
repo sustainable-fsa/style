@@ -5,7 +5,7 @@
    ES module, no build step. Import it pinned to a release:
 
      import { createCompositeMap, addNavigation, addFitControl,
-              installZoomFloor, cameraParams, cameraParamsIfDefault }
+              installZoomFloor, fitDefault, cameraParams, cameraParamsIfDefault }
        from 'https://sustainable-fsa.com/style/v0.1.0/map/map.js';
 
    REQUIRES `window.maplibregl` — the vendored UMD build, loaded as a CLASSIC
@@ -43,7 +43,9 @@
         below is only a boot-time stand-in for the frames before it arrives.
      4. NEW `cameraParamsIfDefault()` — the clean-URL default-elision pair from
         the same "Planned for 0.7.0" list, shipped as one call rather than a
-        separate `atDefaultExtent()` predicate.
+        separate `atDefaultExtent()` predicate. It compares against the pose a
+        fit ACTUALLY settles at inside the maxBounds cage (see § Default pose),
+        not against `cameraForBounds()`, which ignores the cage.
      5. `addFitControl()` is a real `IControl` (MCO appends a bare button and
         returns null when no group exists yet), so it survives `removeControl`
         and works before any other control is added — while still FUSING into
@@ -130,6 +132,16 @@ function fitOptsOf(fitOpts) {
   return fo || DEFAULT_FIT_OPTS;
 }
 
+// …and so may `bounds`, for the same reason and in the same helpers: an app
+// whose extent follows the loaded vintage can hand `() => counties.bounds`
+// to addFitControl()/installZoomFloor() once instead of tearing them down and
+// re-installing them on every decode. (installZoomFloor's `refresh(newBounds)`
+// is the other route; both are supported, neither is required.)
+function boundsOf(bounds) {
+  const b = (typeof bounds === 'function') ? bounds() : bounds;
+  return b || COMPOSITE_BOUNDS;
+}
+
 /**
  * A style with no sources and one background layer — the cream canvas the
  * county layers sit on. This is the whole "basemap".
@@ -171,6 +183,7 @@ export function createCompositeMap({
 } = {}) {
   const gl = maplibre();
   const fitOpts = { padding: fitPadding, animate: false };
+  const camera = initialCamera(params, { bounds, fitOpts });
 
   const map = new gl.Map({
     container,
@@ -180,7 +193,7 @@ export function createCompositeMap({
     dragRotate: false,
     pitchWithRotate: false,
     maxPitch: 0,
-    ...initialCamera(params, { bounds, fitOpts }),
+    ...camera,
   });
 
   // Two-finger twist and the keyboard's shift+arrow rotation are separate
@@ -190,7 +203,15 @@ export function createCompositeMap({
     map.keyboard.disableRotation();
   }
 
-  map.setMaxBounds(padBounds(bounds, maxBoundsPadDeg));
+  map.setMaxBounds(padBounds(boundsOf(bounds), maxBoundsPadDeg));
+
+  // The constructor's fit has already run and setMaxBounds() has already
+  // re-constrained it, so the camera standing here IS the default pose — read
+  // it back (§ Default pose). Not when the URL named a camera: that pose is the
+  // reader's, not the default, and recording it would elide their ?lng&lat&zoom
+  // out of the URL on the first moveend.
+  poseState(map);                       // start tracking either way
+  if (!camera.center) recordDefaultPose(map);
 
   return { map, bounds, fitOpts };
 }
@@ -209,6 +230,147 @@ export function padBounds(bounds, deg) {
     [Math.max(-180, w - deg), Math.max(-90, s - deg)],
     [Math.min(180, e + deg), Math.min(90, n + deg)],
   ];
+}
+
+/* ── Default pose ────────────────────────────────────────────────────────────
+   WHAT THE DEFAULT VIEW ACTUALLY IS, on a caged map.
+
+   `map.cameraForBounds()` ignores `maxBounds`. createCompositeMap() installs a
+   cage (`padBounds(bounds, 6)`), and on a wide, short container — the shape of
+   every county map in this fleet — the cage holds the camera at a HIGHER zoom
+   than the fit alone would land on (measured on the kit demo's 1048×460 map
+   container: 3.385 constrained against 2.922 reported; at a full-width
+   1440×460 the same pair is 3.846 against 2.926). Comparing the live camera to
+   cameraForBounds() therefore never matched on a real house map, so an
+   untouched map emitted ?lng&lat&zoom and the clean-URL rule (HOUSE-STYLE §4)
+   was broken on arrival.
+
+   The fix is to stop predicting the default pose and start REMEMBERING it: the
+   camera is read back at the moveend that concludes a kit fit, which is the
+   constrained pose by construction, whatever MapLibre's cage arithmetic did.
+   The kit records it
+
+     • at boot, in createCompositeMap(), unless ?lng&lat&zoom named a camera
+       (then there is no default pose to record and cameraParamsIfDefault()
+       falls back to its old cameraForBounds() comparison);
+     • at every fit it performs itself — fitDefault(), the fit control's
+       button, and the zoom floor's spring-back;
+     • after a container resize that found the camera still at the default
+       pose (the cage re-frames silently there, and the pose moves with it);
+     • on installZoomFloor()'s refresh(), which re-reads it for the current
+       container and INVALIDATES it when it is handed new bounds.
+
+   An app that re-frames the map itself should fit through fitDefault() rather
+   than map.fitBounds(), which is the whole of the contract: a raw fitBounds is
+   indistinguishable from any other programmatic camera move, so the kit leaves
+   the remembered pose alone and the URL keeps the camera. */
+
+/** One entry per map: `{pose, atDefault, rearm}`. WeakMap, not a property on
+    the map, so nothing is stamped on the vendor object and the entry dies with
+    the map. */
+const POSE = new WeakMap();
+
+/** Tolerances the TRACKER uses for "is the camera still where the last fit put
+    it". cameraParamsIfDefault() takes its own (looser or tighter) eps from the
+    caller; these only decide whether a resize or a refresh should re-read the
+    pose, so they are deliberately not options. */
+const POSE_ZOOM_EPS = 0.02;
+const POSE_CENTER_EPS = 0.01;
+
+function readPose(map) {
+  const c = map.getCenter();
+  return { lng: c.lng, lat: c.lat, zoom: map.getZoom() };
+}
+
+function poseMatches(a, b, eps, centerEps) {
+  return !!a && !!b
+    && Math.abs(a.zoom - b.zoom) < eps
+    && Math.abs(a.lng - b.lng) < centerEps
+    && Math.abs(a.lat - b.lat) < centerEps;
+}
+
+/**
+ * The per-map pose state, creating it (and its two listeners) on first use.
+ * @param {any} map
+ * @returns {{pose: object|null, atDefault: boolean, rearm: boolean}}
+ */
+function poseState(map) {
+  const found = POSE.get(map);
+  if (found) return found;
+  const st = { pose: null, atDefault: false, rearm: false };
+  POSE.set(map, st);
+
+  // Registered HERE, at create/track time, so it runs before the app's own
+  // moveend handler (the one that mirrors the camera into the URL) — that
+  // handler must read a pose that is already up to date.
+  map.on('moveend', (e) => {
+    // A user gesture that interrupts a flight ends the move too. It is not the
+    // fit landing, so it must not be recorded as the default pose.
+    const user = !!(e && e.originalEvent);
+    if (st.rearm) {
+      st.rearm = false;
+      if (!user) { recordDefaultPose(map); return; }
+    }
+    st.atDefault = poseMatches(readPose(map), st.pose, POSE_ZOOM_EPS, POSE_CENTER_EPS);
+  });
+
+  // map.resize() re-constrains the camera against the cage BEFORE it fires its
+  // own moveend, so the flag read here is still the PRE-resize truth: a map
+  // that was showing its default framing is still showing it at the new size,
+  // just at a different constrained zoom. Re-arm and let the concluding
+  // moveend read the new pose back.
+  map.on('resize', () => { if (st.atDefault) st.rearm = true; });
+
+  return st;
+}
+
+/** Read the live camera back as this map's default pose. */
+function recordDefaultPose(map) {
+  const st = poseState(map);
+  st.pose = readPose(map);
+  st.atDefault = true;
+  return st.pose;
+}
+
+/** Forget it — the framing it was measured against is gone. */
+function invalidateDefaultPose(map) {
+  const st = poseState(map);
+  st.pose = null;
+  st.atDefault = false;
+}
+
+/**
+ * The pose a fit of the app's bounds ACTUALLY settles at on this map, as last
+ * observed, or null when none has been recorded yet.
+ * @param {any} map
+ * @returns {{lng: number, lat: number, zoom: number}|null}
+ */
+export function defaultPose(map) {
+  const st = POSE.get(map);
+  return st && st.pose ? { ...st.pose } : null;
+}
+
+/**
+ * The canonical fit: `map.fitBounds()` plus the bookkeeping that keeps
+ * cameraParamsIfDefault() honest. Use it anywhere an app would otherwise call
+ * map.fitBounds() to return to the full extent — a "reset view" button, a
+ * re-frame after new geometry decodes.
+ *
+ * @param {any} map
+ * @param {{bounds?: any, fitOpts?: any, animate?: boolean}} [opts]
+ *        bounds and fitOpts may each be a value or a function returning one.
+ *        animate defaults to the live reduced-motion gate, read AT CALL TIME
+ *        (WCAG 2.3.3 — the user can flip the OS setting mid-session).
+ */
+export function fitDefault(map, { bounds = COMPOSITE_BOUNDS, fitOpts, animate } = {}) {
+  const st = poseState(map);
+  // The moveend that concludes THIS fit is the default pose, whatever the cage
+  // did to it on the way.
+  st.rearm = true;
+  map.fitBounds(boundsOf(bounds), {
+    ...fitOptsOf(fitOpts),
+    animate: (animate === undefined) ? !reducedMotion() : animate,
+  });
 }
 
 /* ── Camera ↔ URL ────────────────────────────────────────────────────────────
@@ -235,7 +397,7 @@ export function initialCamera(searchParams, { bounds = COMPOSITE_BOUNDS, fitOpts
   if (Number.isFinite(lng) && Number.isFinite(lat) && Number.isFinite(zoom)) {
     return { center: [lng, lat], zoom };
   }
-  return { bounds, fitBoundsOptions: fitOptsOf(fitOpts) };
+  return { bounds: boundsOf(bounds), fitBoundsOptions: fitOptsOf(fitOpts) };
 }
 
 /**
@@ -254,24 +416,46 @@ export function cameraParams(map) {
 }
 
 /**
- * cameraParams(), or `{}` when the camera is still at the default fitBounds
- * pose — merge the result into your app's params so the default view has no
- * camera in its URL at all. Collapses the old atDefaultExtent()+emit pair into
- * one call.
+ * cameraParams(), or `{}` when the camera is still at the default pose — merge
+ * the result into your app's params so the default view has no camera in its
+ * URL at all. Collapses the old atDefaultExtent()+emit pair into one call.
  *
- * The default pose is computed with map.cameraForBounds(), not remembered from
- * boot, so it stays correct after a resize or a padding change.
+ * WHICH default pose: the one the kit REMEMBERED from the last fit it saw land
+ * (§ Default pose), because that pose is the constrained one and
+ * map.cameraForBounds() ignores the maxBounds cage createCompositeMap()
+ * installs. Only when no pose has ever been recorded — a map built by hand
+ * with no cage, or one whose reader arrived on a ?lng&lat&zoom camera — does
+ * this fall back to comparing against cameraForBounds().
  *
  * @param {any} map
- * @param {{bounds?: any, fitOpts?: any, eps?: number, centerEps?: number}} opts
+ * @param {{bounds?: any, fitOpts?: any, eps?: number, centerEps?: number,
+ *          defaultPose?: object|(() => object)}} opts
  *        eps: zoom tolerance (0.02 ≈ the smallest zoom step a user can leave
  *        behind by scrolling). centerEps defaults to eps/2 in DEGREES.
+ *        defaultPose: an explicit `{lng, lat, zoom}` (or a getter for one) to
+ *        compare against, for an app that tracks the pose itself; it wins over
+ *        the remembered one.
  * @returns {{}|{lng: string, lat: string, zoom: string}}
  */
-export function cameraParamsIfDefault(map, { bounds = COMPOSITE_BOUNDS, fitOpts, eps = 0.02, centerEps } = {}) {
+export function cameraParamsIfDefault(map, {
+  bounds = COMPOSITE_BOUNDS, fitOpts, eps = 0.02, centerEps, defaultPose: given,
+} = {}) {
   const cEps = (centerEps == null) ? eps / 2 : centerEps;
+
+  const explicit = (typeof given === 'function') ? given() : given;
+  const remembered = explicit || defaultPose(map);
+  if (remembered) {
+    const rc = remembered.center;
+    const rlng = (rc && typeof rc.lng === 'number') ? rc.lng
+      : (rc && rc[0] != null) ? rc[0] : remembered.lng;
+    const rlat = (rc && typeof rc.lat === 'number') ? rc.lat
+      : (rc && rc[1] != null) ? rc[1] : remembered.lat;
+    return poseMatches(readPose(map), { lng: rlng, lat: rlat, zoom: remembered.zoom }, eps, cEps)
+      ? {} : cameraParams(map);
+  }
+
   let want;
-  try { want = map.cameraForBounds(bounds, fitOptsOf(fitOpts)); } catch (e) { want = null; }
+  try { want = map.cameraForBounds(boundsOf(bounds), fitOptsOf(fitOpts)); } catch (e) { want = null; }
   if (want) {
     // cameraForBounds returns a LngLat in some versions and a [lng,lat] in
     // others; accept both rather than pinning to one MapLibre minor.
@@ -317,9 +501,14 @@ export function addNavigation(map, { showCompass = false, position = 'top-right'
  *
  * @param {{bounds?: any, fitOpts?: any, title?: string, position?: string,
  *          group?: HTMLElement, onBeforeFit?: () => void}} [opts]
- *        onBeforeFit runs before the camera moves — apps use it to close a
- *        detail surface or clear a selection first.
- * @returns {any} the control, with `.button` exposed
+ *        bounds and fitOpts may each be a value or a function returning one —
+ *        an app whose extent follows the loaded vintage can hand a getter here
+ *        once. onBeforeFit runs before the camera moves — apps use it to close
+ *        a detail surface or clear a selection first.
+ * @returns {any} the control, with `.button` and `.setBounds(next)` exposed.
+ *          setBounds() re-points a control that was installed against an older
+ *          extent (the boot stand-in, last year's vintage) without removing and
+ *          re-adding it, and invalidates the remembered default pose with it.
  */
 export function addFitControl(map, {
   bounds = COMPOSITE_BOUNDS, fitOpts, title = 'Zoom to full extent',
@@ -338,14 +527,24 @@ export function addFitControl(map, {
 
   const onClick = () => {
     if (onBeforeFit) onBeforeFit();
-    // Reduced motion is read at click time, not at install time (WCAG 2.3.3 —
-    // the user can flip the OS setting mid-session).
-    map.fitBounds(bounds, { ...fitOptsOf(fitOpts), animate: !reducedMotion() });
+    // fitDefault(), not map.fitBounds(): pressing this button is the user
+    // asking for the default view back, so the pose it lands on IS the default
+    // pose and the URL must go clean again (§ Default pose). Reduced motion is
+    // read inside, at click time, not at install time (WCAG 2.3.3 — the user
+    // can flip the OS setting mid-session).
+    fitDefault(map, { bounds, fitOpts });
   };
   button.addEventListener('click', onClick);
 
   const control = {
     button,
+    /** Re-point at a new extent. `bounds` is the destructured parameter, so
+        this is the control's one piece of mutable state. */
+    setBounds(next) {
+      bounds = next;
+      // The remembered pose was measured against the extent we just replaced.
+      invalidateDefaultPose(map);
+    },
     onAdd(m) {
       this._map = m;
       const corner = m.getContainer().querySelector('.maplibregl-ctrl-' + position);
@@ -398,14 +597,24 @@ const CHROME_RESIZE_PX = 120;
  * @param {any} map
  * @param {{bounds?: any, fitOpts?: any, resizeDebounceMs?: number,
  *          onBeforeSnap?: () => boolean|void}} [opts]
- *        onBeforeSnap returning EXACTLY false vetoes the snap. App policy
- *        lives there — "don't yank the camera while a county detail is open",
- *        "a sidebar toggle IS the user asking to re-fit".
- * @returns {{refresh: () => void, fitZoom: () => number|undefined,
+ *        bounds and fitOpts may each be a value or a function returning one —
+ *        pass a getter and the floor follows the app's live extent with no
+ *        refresh at all. onBeforeSnap returning EXACTLY false vetoes the snap.
+ *        App policy lives there — "don't yank the camera while a county detail
+ *        is open", "a sidebar toggle IS the user asking to re-fit".
+ * @returns {{refresh: (newBounds?: any) => void, fitZoom: () => number|undefined,
  *            dispose: () => void}}
- *        Call refresh() from map.on('load') (cameraForBounds needs a laid-out
- *        container) and again whenever `bounds` changes — e.g. after the first
- *        vintage decode replaces COMPOSITE_BOUNDS with counties.bounds.
+ *        refresh() recomputes the fit zoom for the CURRENT container, and
+ *        re-reads the remembered default pose when the camera is still sitting
+ *        on it. Call it from map.on('load') (cameraForBounds needs a laid-out
+ *        container).
+ *
+ *        refresh(newBounds) ALSO replaces the extent the floor is armed
+ *        against — that is the call to make after the first vintage decode
+ *        swaps COMPOSITE_BOUNDS for counties.bounds. It invalidates the
+ *        remembered default pose with it (the old pose framed the old extent);
+ *        the next fitDefault() — or a press of the fit control — records the
+ *        new one. A bare refresh() never changes the extent.
  */
 export function installZoomFloor(map, {
   bounds = COMPOSITE_BOUNDS, fitOpts, resizeDebounceMs = 200, onBeforeSnap,
@@ -426,9 +635,24 @@ export function installZoomFloor(map, {
 
   function compute() {
     let cam = null;
-    try { cam = map.cameraForBounds(bounds, fitOptsOf(fitOpts)); } catch (e) { cam = null; }
+    try { cam = map.cameraForBounds(boundsOf(bounds), fitOptsOf(fitOpts)); } catch (e) { cam = null; }
     if (cam && Number.isFinite(cam.zoom)) fitZoom = cam.zoom;
     lastSize = containerSize() || lastSize;
+  }
+
+  /** @param {any} [newBounds] the extent to arm against from here on. */
+  function refresh(newBounds) {
+    if (newBounds !== undefined) {
+      bounds = newBounds;
+      // A pose measured against the extent we just replaced is not this map's
+      // default pose any more (§ Default pose).
+      invalidateDefaultPose(map);
+    }
+    compute();
+    // Same extent, possibly a new container: if the camera is still sitting on
+    // the remembered pose, the cage may have quietly re-framed it since, so
+    // read it back rather than leave a stale one behind.
+    if (newBounds === undefined && poseState(map).atDefault) recordDefaultPose(map);
   }
 
   function below() {
@@ -441,7 +665,9 @@ export function installZoomFloor(map, {
     if (onBeforeSnap && onBeforeSnap() === false) return;
     springingBack = true;
     map.once('moveend', () => { springingBack = false; });
-    map.fitBounds(bounds, { ...fitOptsOf(fitOpts), animate: !reducedMotion() });
+    // A spring-back lands on the default framing by definition, so it records
+    // the default pose like any other kit fit.
+    fitDefault(map, { bounds, fitOpts });
   }
 
   function onZoomEnd() {
@@ -468,9 +694,13 @@ export function installZoomFloor(map, {
 
   map.on('zoomend', onZoomEnd);
   map.on('resize', onResize);
+  // The default-pose tracker is the map's, not this handle's: dispose() below
+  // drops only what was added here. Touching it now means a hand-built map
+  // (one that never went through createCompositeMap) is tracked from install.
+  poseState(map);
 
   return {
-    refresh: compute,
+    refresh,
     fitZoom: () => fitZoom,
     dispose() {
       clearTimeout(timer);

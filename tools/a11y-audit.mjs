@@ -140,43 +140,73 @@ for (const theme of THEMES) {
     }
 
     /* DELIBERATE PROBE (delta from the MCO original, which never interacts).
-       ui/search.js's listbox only exists once a query has matched something,
-       and its flyout carries the option rows, the aria-activedescendant
-       wiring, and the role="presentation" overflow row. Auditing the demo with
-       the dropdown shut audits an empty <ul> and calls it coverage. Failures
-       here are non-fatal — the probe is extra reach, not the gate.
+       ui/search.js's listbox only exists once a query has been typed, and its
+       flyout carries the option rows, the aria-activedescendant wiring, and
+       the disabled info rows. Auditing the demo with the dropdown shut audits
+       an empty <ul> and calls it coverage.
 
-       KNOWN GAP, deliberately not probed: the ZERO-RESULTS state. When a query
-       matches nothing, ui/search.js renders a listbox whose only child is
-       <li role="presentation" class="option-empty">No matches</li>, and axe
-       flags that as aria-required-children (CRITICAL) — a listbox with no
-       option children at all. A query that DOES match is clean, because the
-       presentation row then sits alongside real options. The fix belongs in
-       ui/search.js (role="option" aria-disabled="true" on the info rows), not
-       here; when it lands, change the fill below to a query that matches
-       nothing ('zzzzz') so this gate covers that state too. */
-    let probe = 'skipped';
-    try {
-      const input = page.locator('#demo-search');
-      if (!(await input.isVisible())) {
-        await page.locator('#btn-search-toggle').click({ timeout: 2000 });
+       BOTH populated states are audited, because they are structurally
+       different DOM and one of them used to be an axe CRITICAL:
+
+         matches — real options, plus the counted overflow row beside them;
+         empty   — a query that matches NOTHING, where the "No matches" row is
+                   the listbox's ONLY child. While that row was
+                   role="presentation" this was a listbox with zero options,
+                   i.e. aria-required-children (critical), in all four
+                   theme×viewport combos. ui/search.js now renders both info
+                   rows as role="option" aria-disabled="true"; this probe is
+                   what keeps that fixed.
+
+       A state that cannot be reached (no JS, a broken demo) is reported as
+       `unavailable` and audited anyway — the probe is extra reach, not the
+       gate, but the axe run over whatever IS on screen still counts. */
+    const STATES = [
+      { name: 'matches', query: 'a', ready: '#demo-results [role="option"]:not([aria-disabled="true"])' },
+      { name: 'empty', query: 'zzzzz', ready: '#demo-results [role="option"][aria-disabled="true"]' },
+    ];
+
+    async function showState(state) {
+      try {
+        const input = page.locator('#demo-search');
+        if (!(await input.isVisible())) {
+          await page.locator('#btn-search-toggle').click({ timeout: 2000 });
+        }
+        await input.fill(state.query, { timeout: 2000 });
+        await page.waitForSelector(state.ready, { timeout: 2000 });
+        return true;
+      } catch (err) {
+        return false;
       }
-      await input.fill('a', { timeout: 2000 });
-      await page.waitForSelector('#demo-results [role="option"]', { timeout: 2000 });
-      probe = 'open';
-    } catch (err) {
-      probe = 'unavailable';
     }
 
-    const results = await new AxeBuilder({ page }).analyze();
-    const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-    const meh = results.violations.filter((v) => v.impact !== 'serious' && v.impact !== 'critical');
+    // One axe pass per combobox state, merged by rule id so the counts stay
+    // comparable to a single-pass run and a rule that fires in both states is
+    // reported once, naming both.
+    const seen = new Map();
+    const probeStates = [];
+    for (const state of STATES) {
+      const reached = await showState(state);
+      probeStates.push(state.name + (reached ? '' : ':unavailable'));
+      const results = await new AxeBuilder({ page }).analyze();
+      for (const v of results.violations) {
+        const rec = seen.get(v.id) || { v, states: [] };
+        // Keep the pass with the most nodes: the fuller failure is the more
+        // useful one to print.
+        if (v.nodes.length > rec.v.nodes.length) rec.v = v;
+        rec.states.push(state.name);
+        seen.set(v.id, rec);
+      }
+    }
+    const probe = probeStates.join('+');
+    const found = [...seen.values()];
+    const bad = found.filter((r) => r.v.impact === 'serious' || r.v.impact === 'critical');
+    const meh = found.filter((r) => r.v.impact !== 'serious' && r.v.impact !== 'critical');
 
     if (bad.length) {
       failed = true;
       console.error(`\n[${label}] ${bad.length} SERIOUS/CRITICAL violation(s):`);
-      for (const v of bad) {
-        console.error(`  ${v.id} (${v.impact}): ${v.help}`);
+      for (const { v, states } of bad) {
+        console.error(`  ${v.id} (${v.impact}) [combobox: ${states.join(', ')}]: ${v.help}`);
         console.error(`    ${v.helpUrl}`);
         for (const n of v.nodes.slice(0, 5)) {
           console.error(`    → ${n.target.join(' ')}`);
@@ -187,8 +217,9 @@ for (const theme of THEMES) {
     } else {
       console.log(`\n[${label}] OK — 0 serious/critical`);
     }
-    for (const v of meh) {
-      console.log(`  advisory ${v.id} (${v.impact}): ${v.help} [${v.nodes.length} node(s)]`);
+    for (const { v, states } of meh) {
+      console.log(`  advisory ${v.id} (${v.impact}) [combobox: ${states.join(', ')}]: `
+        + `${v.help} [${v.nodes.length} node(s)]`);
       for (const n of v.nodes.slice(0, 3)) console.log(`    → ${n.target.join(' ')}`);
     }
     if (consoleErrors.length) {

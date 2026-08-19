@@ -140,17 +140,6 @@
     .demo-dl dt { color: var(--text-muted); }
     .demo-dl dd { color: var(--text-primary); font-family: var(--font-mono); }
 
-    /* kit-override: the theme styles .info-section prose (p, ul, a, kbd, code)
-       but ships no table rules, and ui/help.js turns GFM tables ON precisely
-       because help copy in this fleet is mostly tables. Reported upstream;
-       until it lands in the kit, the demo's help modal styles its own. */
-    .info-section table { border-collapse: collapse; width: 100%; font-size: 0.8rem; margin: 0.5rem 0; }
-    .info-section th, .info-section td {
-      border: 1px solid var(--border); padding: 0.3rem 0.5rem;
-      text-align: left; color: var(--text-secondary);
-    }
-    .info-section th { color: var(--text-primary); background: var(--bg-raised); }
-
     footer {
       max-width: 1080px; margin: 0 auto;
       padding: 1.5rem max(1rem, env(safe-area-inset-right))

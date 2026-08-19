@@ -41,7 +41,9 @@
         did a flat case-insensitive `includes()`, which buries "Lake County"
         under "Salt Lake…" for the query "lake".
      3. Results are capped (`maxResults`) with a counted overflow row, so a
-        3,100-county list can't render 3,100 <li>s into a flyout.
+        3,100-county list can't render 3,100 <li>s into a flyout. That row and
+        the zero-results row are DISABLED OPTIONS, not presentation rows — see
+        buildInfoRow().
      4. `announce` is a first-class option: every filter pass announces the
         match count through the app's live region (HOUSE-STYLE §5.1).
      5. Escape precedence is DOCUMENTED and enforced (see below) so the
@@ -156,8 +158,10 @@ export function _rankItems(items, query, maxResults = 12) {
  *   • dropdown CLOSED → the event is left completely untouched and bubbles,
  *                       so the same keypress reaches the next layer down.
  *   One Escape dismisses exactly one layer, top-down. ui/card.js honours the
- *   other half of this contract by ignoring an Escape whose defaultPrevented
- *   is already true.
+ *   other half of this contract in both directions: it ignores an Escape whose
+ *   defaultPrevented is already true, and it sets defaultPrevented when the
+ *   card is the layer that closes, so anything below the card can yield the
+ *   same way. Every layer in an app owes the stack both halves.
  *
  * @param {object} opts
  * @param {HTMLInputElement} opts.input
@@ -231,16 +235,36 @@ export function initSearchBox({
     return li;
   }
 
-  /** A row that is NOT an option: it is not selectable, not arrow-key
-      reachable, and role="presentation" keeps it out of the listbox's option
-      set entirely. The count it carries also reaches AT through `announce`,
-      which reports the UNCAPPED total. */
+  /** The zero-results row and the counted overflow row: `role="option"` with
+      `aria-disabled="true"`.
+
+      WHY AN OPTION AT ALL. They used to be `role="presentation"`, which is
+      correct-looking and wrong: when the query matches NOTHING the "No matches"
+      row is the listbox's only child, and a listbox with zero owned options
+      fails ARIA's required-children rule — axe scores it CRITICAL, in every
+      theme and at every viewport. Disabled options satisfy the role's
+      structure while carrying exactly the same meaning.
+
+      They remain unselectable, and that is enforced in four places rather than
+      assumed: optionRows() skips them, so arrow navigation and Home/End never
+      land on one and aria-activedescendant never names one; Enter reads
+      `shown`, which they are not in; and onPointerDown() matches only
+      selectable rows, so a mousedown on one is ignored exactly as it was
+      before. The theme already styles the disabled state, and the count also
+      reaches AT through `announce`, which reports the UNCAPPED total. */
   function buildInfoRow(text, extraClass) {
     const li = document.createElement('li');
-    li.setAttribute('role', 'presentation');
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-disabled', 'true');
     li.className = extraClass ? 'option-empty ' + extraClass : 'option-empty';
     li.textContent = text;
     return li;
+  }
+
+  /** The SELECTABLE rows, in render order — which is match order. The disabled
+      info rows are options for ARIA's sake and for nothing else. */
+  function optionRows() {
+    return dropdown.querySelectorAll('[role="option"]:not([aria-disabled="true"])');
   }
 
   function render(matches, total) {
@@ -281,7 +305,7 @@ export function initSearchBox({
       active-option state, and the theme styles [aria-selected="true"] with a
       weight change and an inset bar so it doesn't rely on colour alone. */
   function setActive(i) {
-    const rows = dropdown.querySelectorAll('[role="option"]');
+    const rows = optionRows();
     rows.forEach((el, idx) => el.setAttribute('aria-selected', String(idx === i)));
     activeIndex = i;
     if (i < 0 || !rows[i]) {
@@ -382,12 +406,15 @@ export function initSearchBox({
       row is still in the DOM when we read it. preventDefault() on it keeps
       focus in the input, so the blur never happens at all. */
   function onPointerDown(e) {
-    const li = e.target && e.target.closest ? e.target.closest('[role="option"]') : null;
+    // Selectable rows only: a mousedown on a disabled info row falls straight
+    // through, untouched, the way it did when those rows were presentational.
+    const li = e.target && e.target.closest
+      ? e.target.closest('[role="option"]:not([aria-disabled="true"])') : null;
     if (!li || !dropdown.contains(li)) return;
     e.preventDefault();
     // Positional, not a parsed data-index: nothing in this kit coerces a
     // string attribute to a number, and the row order IS the match order.
-    const rows = Array.prototype.slice.call(dropdown.querySelectorAll('[role="option"]'));
+    const rows = Array.prototype.slice.call(optionRows());
     pick(rows.indexOf(li));
   }
 
