@@ -10,6 +10,39 @@ Releases are immutable directories: `vX.Y.Z/` is a byte-copy snapshot with a
 `MANIFEST.sha256`, re-verified by CI on every run. A bad release gets a new
 patch version, never an edit.
 
+## [0.2.1] — 2026-08-21
+
+One fix: the county selection ring, which has never drawn. No API, selector, or
+token changed — `setSelected()` takes the same argument and the layers keep their
+ids, so this is a drop-in bump from 0.2.0.
+
+### Fixed
+
+- **`county/county.js`** — the selection ring and its casing filter on the
+  feature id, and that filter **never matched**, so no consumer has ever seen a
+  selected county outlined. `promoteId: 'id'` does lift the 5-character FSA
+  string into the feature-id slot, and `setFeatureState()` keeps it a string —
+  which is why the choropleth join, keyed the same way, has always worked. But
+  the tile encoder behind the **filter** path coerces a numeric-looking id to a
+  **number**, and every FSA id is numeric-looking: `'01001'` becomes `1001`,
+  leading zero and all, so `['==', ['id'], '01001']` compared a string against a
+  number and matched nothing. Both selection layers now compare
+  `['get', 'id']` — the property, which is never coerced. `['to-string',
+  ['id']]` would **not** have fixed it: it yields `'1001'` for a leading-zero id,
+  and no expression recovers a zero the encoder has already dropped. This is
+  guardrail 10 — county ids are strings, never `parseInt` — enforced against
+  MapLibre, which does the coercion internally where no review can see it.
+
+  Measured in `lfp-explorer` before the change: `queryRenderedFeatures()` on
+  `sfsa-county-selected` and `sfsa-county-selected-casing` returned **0**
+  features for every selection the app had ever made, while
+  `sfsa-county-fill` returned 3,232. After: **1** on each, the ring surviving a
+  year change and a view switch, and back to 0 when the detail card closes.
+
+  **Consumers get this for free by bumping the pin** — no app-side change. If an
+  app worked around the missing ring with its own highlight layer, that
+  workaround is now redundant and should come out.
+
 ## [0.2.0] — 2026-08-19
 
 The control drawer, and the full-height dock for the detail surface that sits
