@@ -1,11 +1,11 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · ui/search.js · v0.2.0
+   Sustainable FSA house-style kit · ui/search.js · v0.2.1
    The county-search combobox: a text input plus an ARIA listbox of results.
 
    ES module, no build step. Imports only core/core.js.
 
      import { initSearchBox }
-       from 'https://sustainable-fsa.com/style/v0.2.0/ui/search.js';
+       from 'https://sustainable-fsa.com/style/v0.2.1/ui/search.js';
 
    Markup is the shell documented in theme/sfsa-theme.css § "Combobox" —
    this module produces exactly that DOM and nothing else:

@@ -51,9 +51,9 @@ shape of a consumer page:
 <script>/* anti-flash theme boot — INLINE, before the first stylesheet */</script>
 
 <link rel="preload" as="font" type="font/woff2" crossorigin
-      href="https://sustainable-fsa.com/style/v0.2.0/theme/fonts/roboto-v51-latin-wght.woff2">
+      href="https://sustainable-fsa.com/style/v0.2.1/theme/fonts/roboto-v51-latin-wght.woff2">
 <link rel="stylesheet" href="https://sustainable-fsa.com/style/vendor/maplibre-gl-5.18.0/maplibre-gl.css">
-<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.2.0/theme/sfsa-theme.css">
+<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.2.1/theme/sfsa-theme.css">
 ```
 
 and at the end of `<body>` — the two vendored UMD scripts define `maplibregl`
@@ -67,7 +67,7 @@ module is deferred by definition, so it runs after both:
 ```
 
 Note the two URL shapes: **kit code is version-pinned**
-(`/style/v0.2.0/…`), **vendored libraries are pinned by their own directory
+(`/style/v0.2.1/…`), **vendored libraries are pinned by their own directory
 name** (`/style/vendor/maplibre-gl-5.18.0/…`) and never carry a kit version. The
 font preload must point at the same versioned path the stylesheet loads from,
 and `crossorigin` on it is mandatory even same-origin — fonts are fetched in
@@ -79,13 +79,13 @@ its exports):
 
 ```js
 import { KIT_VERSION, showToast, initThemeToggle, replaceUrlState }
-  from 'https://sustainable-fsa.com/style/v0.2.0/core/core.js';
+  from 'https://sustainable-fsa.com/style/v0.2.1/core/core.js';
 import { createMap }
-  from 'https://sustainable-fsa.com/style/v0.2.0/map/map.js';
+  from 'https://sustainable-fsa.com/style/v0.2.1/map/map.js';
 import { loadCounties, swapVintage, vintageForYear }
-  from 'https://sustainable-fsa.com/style/v0.2.0/county/county.js';
+  from 'https://sustainable-fsa.com/style/v0.2.1/county/county.js';
 import { initLegend }
-  from 'https://sustainable-fsa.com/style/v0.2.0/ui/legend.js';
+  from 'https://sustainable-fsa.com/style/v0.2.1/ui/legend.js';
 ```
 
 Every kit module carries a `@version` header and JSDoc-style comments on its
@@ -127,7 +127,7 @@ preview origin works too), and a consumer's CSP needs no third-party host at
 all. No basemap tiles, no font host, no npm registry: `'self'` plus this origin
 is the entire policy.
 
-**Pinning is the version path.** `https://sustainable-fsa.com/style/v0.2.0/core/core.js`
+**Pinning is the version path.** `https://sustainable-fsa.com/style/v0.2.1/core/core.js`
 is a different file from `…/v0.3.0/core/core.js` forever. There is no alias, no
 `@latest`, nothing that floats. A consumer upgrades by editing its URLs — which
 is a reviewable diff, and the only way this kit ever moves under an app.

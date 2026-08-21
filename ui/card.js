@@ -1,12 +1,12 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · ui/card.js · v0.2.0
+   Sustainable FSA house-style kit · ui/card.js · v0.2.1
    The county detail card: a docked panel over the map that becomes a bottom
    sheet on compact viewports.
 
    ES module, no build step. Imports only core/core.js.
 
      import { initDetailCard }
-       from 'https://sustainable-fsa.com/style/v0.2.0/ui/card.js';
+       from 'https://sustainable-fsa.com/style/v0.2.1/ui/card.js';
 
    Markup is the shell documented in theme/sfsa-theme.css § "Detail card" —
    this module manages that element, it does not build it:

@@ -1,12 +1,12 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · ui/drawer.js · v0.2.0
+   Sustainable FSA house-style kit · ui/drawer.js · v0.2.1
    The control drawer: a real column of the app's map row on desktop, an
    off-canvas overlay with a scrim on compact viewports.
 
    ES module, no build step. Imports only core/core.js.
 
      import { initDrawer }
-       from 'https://sustainable-fsa.com/style/v0.2.0/ui/drawer.js';
+       from 'https://sustainable-fsa.com/style/v0.2.1/ui/drawer.js';
 
    Markup is the shell documented in theme/sfsa-theme.css § "Control drawer" —
    this module manages those elements, it does not build them:

@@ -1,5 +1,5 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · ui/export.js · v0.2.0
+   Sustainable FSA house-style kit · ui/export.js · v0.2.1
    Branded PNG export: render the map off-screen at poster resolution, then
    compose the house chrome (header, credit line, both logos, the app's legend)
    around it on a canvas.
@@ -9,7 +9,7 @@
    composeBranded() works on any canvas.
 
      import { captureCompositeMap, composeBranded }
-       from 'https://sustainable-fsa.com/style/v0.2.0/ui/export.js';
+       from 'https://sustainable-fsa.com/style/v0.2.1/ui/export.js';
 
      const { canvas, dispose } = await captureCompositeMap({
        bounds: conusBounds,

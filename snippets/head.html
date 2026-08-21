@@ -7,14 +7,14 @@
 
      Two kinds of URL live below, and the difference is deliberate:
 
-       https://sustainable-fsa.com/style/v0.2.0/…   ← kit code, VERSION-PINNED
+       https://sustainable-fsa.com/style/v0.2.1/…   ← kit code, VERSION-PINNED
        https://sustainable-fsa.com/style/vendor/…   ← vendored third-party
                                                        libraries, pinned by the
                                                        directory name instead
                                                        (maplibre-gl-5.18.0)
 
      Pin the kit version. Tracking a moving path means a theme change lands in
-     your app unannounced; bump v0.2.0 → v0.3.0 when you have looked at it.
+     your app unannounced; bump v0.2.1 → v0.3.0 when you have looked at it.
 
      Everything is served from the same origin as the apps, so subresource
      integrity is optional here — the pinned path is what protects you. Do not
@@ -101,14 +101,14 @@
      src is relative to that stylesheet, so this preload must point at the same
      versioned path the stylesheet is loaded from. -->
 <link rel="preload" as="font" type="font/woff2" crossorigin
-      href="https://sustainable-fsa.com/style/v0.2.0/theme/fonts/roboto-v51-latin-wght.woff2">
+      href="https://sustainable-fsa.com/style/v0.2.1/theme/fonts/roboto-v51-latin-wght.woff2">
 
 <!-- MapLibre GL 5.18.0 — map apps only. Vendored; the version is in the path. -->
 <link rel="stylesheet" href="https://sustainable-fsa.com/style/vendor/maplibre-gl-5.18.0/maplibre-gl.css">
 
 <!-- Sustainable FSA house style. Loads AFTER the vendor sheet so §4's control
      polish wins without needing !important on every declaration. -->
-<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.2.0/theme/sfsa-theme.css">
+<link rel="stylesheet" href="https://sustainable-fsa.com/style/v0.2.1/theme/sfsa-theme.css">
 
 <!-- ==========================================================================
      Script tags — place near the END of <body>, in this order:

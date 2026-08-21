@@ -1,5 +1,5 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · ui/legend.js · v0.2.0
+   Sustainable FSA house-style kit · ui/legend.js · v0.2.1
    Legends that are accessible surfaces, not pictures: a continuous colorbar
    and a categorical swatch list.
 
@@ -8,7 +8,7 @@
    to escape.
 
      import { colorbar, swatches }
-       from 'https://sustainable-fsa.com/style/v0.2.0/ui/legend.js';
+       from 'https://sustainable-fsa.com/style/v0.2.1/ui/legend.js';
 
      const bar = colorbar(document.getElementById('legend-body'), batlow, {
        title:   'Grazing period length',

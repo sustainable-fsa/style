@@ -1,12 +1,12 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · map/map.js · v0.2.0
+   Sustainable FSA house-style kit · map/map.js · v0.2.1
    MapLibre GL setup for the basemap-less FSA county composite.
 
    ES module, no build step. Import it pinned to a release:
 
      import { createCompositeMap, addNavigation, addFitControl,
               installZoomFloor, fitDefault, cameraParams, cameraParamsIfDefault }
-       from 'https://sustainable-fsa.com/style/v0.2.0/map/map.js';
+       from 'https://sustainable-fsa.com/style/v0.2.1/map/map.js';
 
    REQUIRES `window.maplibregl` — the vendored UMD build, loaded as a CLASSIC
    script BEFORE the app module:

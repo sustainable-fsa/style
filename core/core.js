@@ -1,11 +1,11 @@
 /* ============================================================================
-   Sustainable FSA house-style kit · core/core.js · v0.2.0
+   Sustainable FSA house-style kit · core/core.js · v0.2.1
    Framework-free shared utilities for Sustainable FSA web apps.
 
    ES module, no build step, zero dependencies. Import it pinned to a release:
 
      import { setTheme, showToast, kitUrl }
-       from 'https://sustainable-fsa.com/style/v0.2.0/core/core.js';
+       from 'https://sustainable-fsa.com/style/v0.2.1/core/core.js';
 
    Contents: constants · storage · strings · fetch · reduced motion (live) ·
    viewport (compact/touch) · toast · theme · live region · info modal ·
@@ -42,7 +42,7 @@
 /* ── Constants ───────────────────────────────────────────────────────────── */
 
 /** Version of the kit this module ships in. Matches the /vX.Y.Z/ release dir. */
-export const KIT_VERSION = '0.2.0';
+export const KIT_VERSION = '0.2.1';
 
 // Deliberately shared across every sustainable-fsa.com app on the origin: a
 // theme choice in one app follows the user into the others. App-private keys
@@ -525,10 +525,10 @@ export function replaceUrlState(paramsObj) {
    not inside a vX.Y.Z/ release directory, so a page can pin its JS to a
    release while still pointing at one copy of the banner or a vendor bundle.
    Resolving against import.meta.url means the same call works from the dev
-   tree (…/style/core/core.js), from a release (…/style/v0.2.0/core/core.js),
+   tree (…/style/core/core.js), from a release (…/style/v0.2.1/core/core.js),
    and from a localhost workspace server (http://localhost:8000/style/…). */
 
-/** A release directory segment: 'v0.2.0' but not 'v1', 'vNext', 'video'. */
+/** A release directory segment: 'v0.2.1' but not 'v1', 'vNext', 'video'. */
 const VERSION_SEG = /^v\d+\.\d+\.\d+$/;
 
 /**
