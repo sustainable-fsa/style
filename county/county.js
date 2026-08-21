@@ -367,7 +367,7 @@ const HOVER_WIDTH = 1.6;
 const STATE_WIDTH = 1.2;
 
 // Empty string, not null: a filter needs a comparable value, and no FSA id is
-// ever ''. `['==', ['id'], '']` matches nothing, which is exactly "no
+// ever ''. `['==', ['get', 'id'], '']` matches nothing, which is exactly "no
 // selection".
 const NO_SELECTION = '';
 
@@ -388,10 +388,20 @@ export function addCountyLayers(map, counties, {
   map.addSource(sourceId, {
     type: 'geojson',
     data: counties.fc,
-    // promoteId lifts properties.id to feature.id so setFeatureState(),
-    // ['id'] filters and ['feature-state', …] expressions all key on the
-    // 5-CHARACTER FSA STRING. Without it MapLibre assigns its own numeric ids
-    // and every join in the app is against a number that means nothing.
+    // promoteId lifts properties.id to feature.id so setFeatureState() and
+    // ['feature-state', …] expressions key on the 5-CHARACTER FSA STRING.
+    // Without it MapLibre assigns its own numeric ids and every join in the app
+    // is against a number that means nothing.
+    //
+    // It does NOT make ['id'] usable in a FILTER. The feature-state map keeps
+    // the string, but the tile encoder behind the filter path coerces a
+    // numeric-looking id to a NUMBER — '01001' becomes 1001, leading zero and
+    // all — so `['==', ['id'], '01001']` matches nothing and no amount of
+    // to-string recovers the zero. Every FSA id is numeric-looking, so a filter
+    // that keys on ['id'] silently never matches: the selection ring below
+    // therefore compares ['get', 'id'], the PROPERTY, which stays a string.
+    // This is guardrail 10 (AGENTS.md) enforced against MapLibre itself, which
+    // does the forbidden parseInt internally.
     promoteId: 'id',
   });
   map.addSource(stateSourceId, {
@@ -440,7 +450,7 @@ export function addCountyLayers(map, counties, {
     id: LAYER.selectedCasing,
     type: 'line',
     source: sourceId,
-    filter: ['==', ['id'], NO_SELECTION],
+    filter: ['==', ['get', 'id'], NO_SELECTION],
     paint: casingPaint(),
   }, before);
 
@@ -448,7 +458,7 @@ export function addCountyLayers(map, counties, {
     id: LAYER.selected,
     type: 'line',
     source: sourceId,
-    filter: ['==', ['id'], NO_SELECTION],
+    filter: ['==', ['get', 'id'], NO_SELECTION],
     paint: ringPaint(),
   }, before);
 
@@ -611,7 +621,7 @@ export function addCountyLayers(map, counties, {
      */
     setSelected(id) {
       selectedId = (id == null) ? null : String(id);
-      const f = ['==', ['id'], selectedId ?? NO_SELECTION];
+      const f = ['==', ['get', 'id'], selectedId ?? NO_SELECTION];
       map.setFilter(LAYER.selectedCasing, f);
       map.setFilter(LAYER.selected, f);
     },
